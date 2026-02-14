@@ -1,0 +1,21 @@
+{
+  "name": "video-machine",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^3.0.23",
+    "@huggingface/inference": "^4.13.11",
+    "ai": "^6.0.78",
+    "ai-sdk-ollama": "^3.5.0",
+    "bullmq": "^5.69.1",
+    "elevenlabs": "^1.59.0",
+    "pexels": "^1.4.0"
+  }
+}
