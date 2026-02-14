@@ -28,7 +28,7 @@ async function addIllustrationLink(sentences: ScriptSentence[]) {
   for (const sentence of sentences) {
     const response = await myPexelsClient.videos.search({
       query: sentence.illustration,
-      per_page: 10 // Fetch a few extra to handle potential duplicates
+      per_page: 10
     });
 
     if (!('videos' in response)) {
@@ -39,7 +39,6 @@ async function addIllustrationLink(sentences: ScriptSentence[]) {
       const bestVideo = response.videos.find(video => {
         if (usedVideoIds.has(video.id)) return false;
 
-        // Check if any video file meets your 540x960 minimum
         return video.video_files.some(file =>
           (file.width || 0) >= 540 && (file.height || 0) >= 960
         );
@@ -48,16 +47,15 @@ async function addIllustrationLink(sentences: ScriptSentence[]) {
       const selectedVideo = bestVideo || response.videos[0];
 
       if (!selectedVideo) {
-        throw new Error('No available video!!!')
+        throw new Error('No available video!!!');
       }
 
-      // Now pick the specific file from that video that meets the criteria
-      // We prefer the highest resolution that matches the criteria
+      // Filter for files meeting the minimum, then sort ascending (smallest first)
       const validFile = selectedVideo.video_files
         .filter(file => (file.width || 0) >= 540 && (file.height || 0) >= 960)
-        .sort((a, b) => (b.width || 0) - (a.width || 0))[0];
+        .sort((a, b) => (a.width || 0) - (b.width || 0))[0];
 
-      sentence.illustrationVideoUrl = validFile!.link;
+      sentence.illustrationVideo = validFile!;
       usedVideoIds.add(selectedVideo.id);
     }
   }
@@ -111,7 +109,15 @@ JSON Structure:
     throw new Error("No JSON array found in the AI response");
   }
 
-  const sentences = JSON.parse(extracted_text[0]);
+  let sentences: ScriptSentence[];
+  try {
+    sentences = JSON.parse(extracted_text[0]);
+  }
+  catch (e) {
+    console.log('Invalid json from API: ', extracted_text[0])
+    throw e;
+  }
+
   await addIllustrationLink(sentences);
   return sentences;
 }

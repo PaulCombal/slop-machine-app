@@ -80,22 +80,19 @@ export async function sentenceToSpeech(
   sentence.wordsAlignment = getWordLevelTimestamps(audio.alignment);
 }
 
-export async function scriptSentencesToSpeech(sentences: ScriptSentence[], persona: PersonaConfig): Promise<string> {
-  const now = new Date();
-  const timestamp = now.toISOString()
-    .replace(/T/, '_')
-    .replace(/\..+/, '')
-    .replaceAll(':', '-');
+export async function scriptSentencesToSpeech(folderName: string, sentences: ScriptSentence[], persona: PersonaConfig): Promise<string> {
+  if (process.env.TTS_GENERATION_PARALLEL === 'true') {
+    const tasks = sentences.map((sentence, index) => {
+      return sentenceToSpeech(sentence, folderName, `${index + 1}`, persona);
+    });
 
-  const folderName = `/output/${timestamp}_${crypto.randomUUID().slice(0, 8)}`;
-  const { mkdir } = require("node:fs/promises");
-  await mkdir(folderName, { recursive: true });
-
-  const tasks = sentences.map((sentence, index) => {
-    return sentenceToSpeech(sentence, folderName, `${index + 1}`, persona);
-  });
-
-  await Promise.all(tasks);
+    await Promise.all(tasks);
+  }
+  else {
+    for (let i = 0; i < sentences.length; i++) {
+      await sentenceToSpeech(sentences[i]!, folderName, `${i + 1}`, persona);
+    }
+  }
 
   return folderName;
 }
