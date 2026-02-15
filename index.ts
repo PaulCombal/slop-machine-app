@@ -1,10 +1,10 @@
-import { generateScript } from "./steps/generate_script.ts";
-import { scriptSentencesToSpeech } from "./steps/tts.ts";
+import { generateScript } from "./steps/generate_script.mts";
+import { scriptSentencesToSpeech } from "./steps/tts.mts";
 import { getPersona } from "./personae.mts";
 import downloadIllustrations from "./steps/download_illustrations.mts";
 import {
 	createOuptutFolder,
-	normalizeAndSaveVideoConfig,
+	compileAndSaveVideoConfig,
 	sendRenderMessage,
 } from "./utils/utils.mts";
 import { getAuthenticatedClient, uploadShort } from "./utils/google.mts";
@@ -24,7 +24,7 @@ async function fullPipelineForOneVideo() {
 	await scriptSentencesToSpeech(folder, sentences, persona);
 
 	console.log(`== Queuing render (${folder})`);
-	await normalizeAndSaveVideoConfig(folder, persona, sentences);
+	await compileAndSaveVideoConfig(folder, persona, sentences);
 	const job = await sendRenderMessage(folder);
 
 	console.log("== Waiting for render to complete");

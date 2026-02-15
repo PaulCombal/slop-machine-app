@@ -19,6 +19,8 @@ export type ScriptSentence = {
 };
 
 export type OutputConfig = {
+	seed: number,
 	persona: PersonaConfig;
 	sentences: ScriptSentence[];
+	satisfyingVideo: string;
 };

@@ -1,6 +1,7 @@
 import type { OutputConfig, ScriptSentence } from "../types/app";
 import type { PersonaConfig } from "../personae.mts";
 import { videoQueue } from "../clients/queues.mts";
+import { readdir } from 'node:fs/promises';
 
 export async function createOuptutFolder() {
 	const now = new Date();
@@ -17,12 +18,22 @@ export async function createOuptutFolder() {
 	return folderName;
 }
 
-export async function normalizeAndSaveVideoConfig(
+export async function compileAndSaveVideoConfig(
 	folder: string,
 	persona: PersonaConfig,
 	sentences: ScriptSentence[],
 ) {
+	const satisfyingDir = '/assets/satisfying';
+	const satisfyingFiles = await readdir(satisfyingDir);
+	const videoFile = satisfyingFiles[Math.floor(Math.random() * satisfyingFiles.length)];
+
+	if (!videoFile) {
+		throw new Error('No satisfying video found');
+	}
+
 	const outputConfig: OutputConfig = {
+		seed: Math.random(),
+		satisfyingVideo: `${satisfyingDir}/${videoFile}`,
 		persona,
 		sentences,
 	};
