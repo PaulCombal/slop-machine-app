@@ -1,6 +1,6 @@
-import {type Credentials, OAuth2Client} from "google-auth-library";
+import { type Credentials, OAuth2Client } from "google-auth-library";
 import { createServer } from "http";
-import {google} from "googleapis";
+import { google } from "googleapis";
 import * as fs from "node:fs";
 
 // 1. Replace these with your credentials from Google Cloud Console
@@ -9,110 +9,118 @@ const CLIENT_SECRET = process.env.GOOGLE_OAUTH2_CLIENT_SECRET;
 const REDIRECT_URI = process.env.GOOGLE_OAUTH2_LOCAL_REDIRECT_URL;
 
 export async function grabOauthTokenLocally(): Promise<Credentials> {
-  if (!CLIENT_ID) {
-    throw new Error('Google client ID not set');
-  }
+	if (!CLIENT_ID) {
+		throw new Error("Google client ID not set");
+	}
 
-  if (!CLIENT_SECRET) {
-    throw new Error('Google client secret not set');
-  }
+	if (!CLIENT_SECRET) {
+		throw new Error("Google client secret not set");
+	}
 
-  if (!REDIRECT_URI) {
-    throw new Error('Google redirect URI not set');
-  }
+	if (!REDIRECT_URI) {
+		throw new Error("Google redirect URI not set");
+	}
 
-  const client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+	const client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 
-  const authUrl = client.generateAuthUrl({
-    access_type: "offline",
-    scope: ["https://www.googleapis.com/auth/youtube.upload"],
-    prompt: "consent",
-  });
+	const authUrl = client.generateAuthUrl({
+		access_type: "offline",
+		scope: ["https://www.googleapis.com/auth/youtube.upload"],
+		prompt: "consent",
+	});
 
-  console.log("\n🚀 Step 1: Authorize the app by visiting this URL:\n");
-  console.log(authUrl);
-  console.log("\nWaiting for redirect on http://localhost:8000...\n");
+	console.log("\n🚀 Step 1: Authorize the app by visiting this URL:\n");
+	console.log(authUrl);
+	console.log("\nWaiting for redirect on http://localhost:8000...\n");
 
-  return new Promise((resolve, reject) => {
-    const server = createServer(async (req, res) => {
-      try {
-        const url = new URL(req.url!, `http://${req.headers.host}`);
-        const code = url.searchParams.get("code");
+	return new Promise((resolve, reject) => {
+		const server = createServer(async (req, res) => {
+			try {
+				const url = new URL(req.url!, `http://${req.headers.host}`);
+				const code = url.searchParams.get("code");
 
-        if (code) {
-          // 1. Get the tokens
-          const { tokens } = await client.getToken(code);
+				if (code) {
+					// 1. Get the tokens
+					const { tokens } = await client.getToken(code);
 
-          // 2. Respond to the browser
-          res.writeHead(200, { "Content-Type": "text/html" });
-          res.end("<h1>Success!</h1><p>You can close this tab now.</p>");
+					// 2. Respond to the browser
+					res.writeHead(200, { "Content-Type": "text/html" });
+					res.end("<h1>Success!</h1><p>You can close this tab now.</p>");
 
-          // 3. Stop the server and return the tokens
-          server.close(() => {
-            console.log("✔ Local server stopped.");
-            resolve(tokens);
-          });
-        }
-      } catch (e) {
-        res.writeHead(500);
-        res.end("Authentication failed.");
-        server.close();
-        reject(e);
-      }
-    }).listen(8000);
-  });
+					// 3. Stop the server and return the tokens
+					server.close(() => {
+						console.log("✔ Local server stopped.");
+						resolve(tokens);
+					});
+				}
+			} catch (e) {
+				res.writeHead(500);
+				res.end("Authentication failed.");
+				server.close();
+				reject(e);
+			}
+		}).listen(8000);
+	});
 }
 
 export async function getAuthenticatedClient(): Promise<OAuth2Client> {
-  if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
-    throw new Error('Google OAuth environment variables are missing');
-  }
+	if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
+		throw new Error("Google OAuth environment variables are missing");
+	}
 
-  const auth = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
-  const tokensFile = Bun.file("/assets/debug/google_tokens.json");
+	const auth = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+	const tokensFile = Bun.file("/assets/debug/google_tokens.json");
 
-  if (!(await tokensFile.exists())) {
-    throw new Error("Tokens not found. Run authorization first.");
-  }
+	if (!(await tokensFile.exists())) {
+		throw new Error("Tokens not found. Run authorization first.");
+	}
 
-  const tokens = await tokensFile.json();
-  auth.setCredentials(tokens);
+	const tokens = await tokensFile.json();
+	auth.setCredentials(tokens);
 
-  // Auto-save refreshed tokens back to the parent directory
-  auth.on('tokens', async (newTokens) => {
-    const current = await tokensFile.json();
-    await Bun.write("/assets/debug/google_tokens.json", JSON.stringify({ ...current, ...newTokens }, null, 2));
-    console.log("🔄 Tokens synced to parent directory.");
-  });
+	// Auto-save refreshed tokens back to the parent directory
+	auth.on("tokens", async (newTokens) => {
+		const current = await tokensFile.json();
+		await Bun.write(
+			"/assets/debug/google_tokens.json",
+			JSON.stringify({ ...current, ...newTokens }, null, 2),
+		);
+		console.log("🔄 Tokens synced to parent directory.");
+	});
 
-  return auth;
+	return auth;
 }
 
 // 2. Focused Execution Function
 export async function uploadShort(auth: OAuth2Client, videoPath: string) {
-  const youtube = google.youtube({ version: "v3", auth });
+	if (process.env.DEBUG !== "false") {
+		console.log("Skipping upload to YT in debug mode");
+		return null;
+	}
 
-  console.log("🚀 Starting upload via authenticated client...");
+	const youtube = google.youtube({ version: "v3", auth });
 
-  const response = await youtube.videos.insert({
-    part: ["snippet", "status"],
-    requestBody: {
-      snippet: {
-        title: "My Vertical Video #Shorts",
-        description: "Uploaded via automated pipeline.",
-        categoryId: "22",
-      },
-      status: {
-        privacyStatus: "private",
-        selfDeclaredMadeForKids: false,
-      },
-    },
-    media: {
-      body: fs.createReadStream(videoPath),
-    },
-  });
+	console.log("🚀 Starting upload via authenticated client...");
 
-  console.log(`✅ Upload Successful! ID: ${response.data.id}`);
-  console.log(`Watch URL: https://youtube.com/shorts/${response.data.id}`);
-  return response.data;
+	const response = await youtube.videos.insert({
+		part: ["snippet", "status"],
+		requestBody: {
+			snippet: {
+				title: "My Vertical Video #Shorts",
+				description: "Uploaded via automated pipeline.",
+				categoryId: "22",
+			},
+			status: {
+				privacyStatus: "private",
+				selfDeclaredMadeForKids: false,
+			},
+		},
+		media: {
+			body: fs.createReadStream(videoPath),
+		},
+	});
+
+	console.log(`✅ Upload Successful! ID: ${response.data.id}`);
+	console.log(`Watch URL: https://youtube.com/shorts/${response.data.id}`);
+	return response.data;
 }

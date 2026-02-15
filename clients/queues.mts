@@ -1,8 +1,14 @@
-import {Queue} from "bullmq";
+import { Queue, QueueEvents } from "bullmq";
 
-export const videoQueue = new Queue('video-rendering', {
-  connection: {
-    host: 'valkey',
-    port: 6379
-  }
+const connectionConfig = {
+	host: "valkey",
+	port: 6379,
+};
+
+export const videoQueue = new Queue("video-rendering", {
+	connection: connectionConfig,
+});
+
+export const remotionRenderQueueEvents = new QueueEvents("video-rendering", {
+	connection: connectionConfig,
 });
