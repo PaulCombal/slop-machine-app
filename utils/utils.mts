@@ -1,6 +1,8 @@
-import type { OutputConfig, ScriptSentence } from "../types/app";
-import type { PersonaConfig } from "../personae.mts";
-import { videoQueue } from "../clients/queues.mts";
+import type {OutputConfig, ScriptSentence} from "../types/app";
+import type {PersonaConfig} from "../personae.mts";
+import {videoQueue} from "../clients/queues.mts";
+import { join, relative } from "node:path";
+import { readdir } from "node:fs/promises";
 
 export async function createOuptutFolder() {
 	const now = new Date();
@@ -10,11 +12,7 @@ export async function createOuptutFolder() {
 		.replace(/\..+/, "")
 		.replaceAll(":", "-");
 
-	const folderName = `/output/${timestamp}_${crypto.randomUUID().slice(0, 8)}`;
-	const { mkdir } = require("node:fs/promises");
-	await mkdir(folderName, { recursive: true });
-
-	return folderName;
+	return `output/${timestamp}_${crypto.randomUUID().slice(0, 8)}`;
 }
 
 export async function compileAndSaveVideoConfig(
@@ -31,7 +29,7 @@ export async function compileAndSaveVideoConfig(
 		sentences,
 	};
 
-	await Bun.write(
+	await Bun.s3.write(
 		folder + "/config.json",
 		JSON.stringify(outputConfig, null, 2),
 	);
@@ -76,7 +74,7 @@ export async function fetchWithRetry(
 
 			// If you need to stream to disk (to avoid memory issues with large videos)
 			const arrayBuffer = await response.arrayBuffer();
-			await Bun.write(fileName, arrayBuffer);
+			await Bun.s3.write(fileName, arrayBuffer);
 
 			clearTimeout(timeoutId);
 			console.log(`✅ Downloaded: ${fileName}`);
@@ -95,5 +93,41 @@ export async function fetchWithRetry(
 			// Wait a bit longer before retrying to appease Pexels
 			await sleep(15000 * (i + 1));
 		}
+	}
+}
+
+export async function ensureDevelopmentAssets() {
+	if (process.env.DEBUG === 'false') {
+		return;
+	}
+
+	const personaeExist = await Bun.s3.list({prefix: "personae/debug/"});
+
+	if (!personaeExist.contents) {
+		console.log("Syncing personae/debug...");
+		// In a real app, you'd loop through your local /assets/personae/debug folder
+		const personaDir = '/assets/personae/debug';
+		const files = await readdir(personaDir, { recursive: true, withFileTypes: true });
+
+		for (const f of files) {
+			if (f.isFile()) {
+				const fullLocalPath = join(f.parentPath, f.name);
+
+				// Calculate the S3 key (e.g., "personae/debug/subdir/file.json")
+				const relativePath = relative(personaDir, fullLocalPath);
+				const s3Key = join('personae/debug/', relativePath);
+
+				await Bun.s3.write(s3Key, Bun.file(fullLocalPath));
+			}
+		}
+	}
+
+	// 2. Check for "audio/themes/debug.ogg"
+	const audioExists = await Bun.s3.exists("audio/themes/debug.ogg");
+
+	if (!audioExists) {
+		console.log("Syncing debug audio...");
+		const localAudio = "/assets/themes/debug.ogg";
+		await Bun.s3.write("audio/themes/debug.ogg", Bun.file(localAudio));
 	}
 }

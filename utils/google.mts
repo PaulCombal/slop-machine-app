@@ -1,7 +1,6 @@
 import { type Credentials, OAuth2Client } from "google-auth-library";
 import { createServer } from "http";
 import { google } from "googleapis";
-import * as fs from "node:fs";
 
 // 1. Replace these with your credentials from Google Cloud Console
 const CLIENT_ID = process.env.GOOGLE_OAUTH2_CLIENT_ID;
@@ -108,7 +107,7 @@ export async function uploadShort(auth: OAuth2Client, videoPath: string) {
 			snippet: {
 				title: "My Vertical Video #Shorts",
 				description: "Uploaded via automated pipeline.",
-				categoryId: "22",
+				categoryId: "42",
 			},
 			status: {
 				privacyStatus: "private",
@@ -116,7 +115,7 @@ export async function uploadShort(auth: OAuth2Client, videoPath: string) {
 			},
 		},
 		media: {
-			body: fs.createReadStream(videoPath),
+			body: Bun.s3.file(videoPath),
 		},
 	});
 

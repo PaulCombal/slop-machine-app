@@ -1,3 +1,5 @@
+import { unlink } from "node:fs/promises";
+
 export type SatisfyingVideoData = {
   category: string;
   videoId: string;
@@ -25,26 +27,32 @@ async function downloadSatisfyingVideo(segment: YtVideoSegment, folder: string) 
 
   if (process.env.DEBUG !== 'false') {
     const sourceFile = Bun.file(`/assets/debug/satisfying.webm`);
-    await Bun.write(outputPath, sourceFile);
+    await Bun.s3.write(outputPath, sourceFile);
     return outputPath;
   }
 
+  const tempPath = `/tmp/video-${Date.now()}.webm`;
   const proc = Bun.spawn([
     "yt-dlp",
     "--js-runtimes", "bun",
     "--download-sections", `*${segment.start}-${segment.end}`,
-    "-o", outputPath,
+    "-o", tempPath,
     url
   ]);
 
   // Wait for the process to finish
   const exitCode = await proc.exited;
 
-  if (exitCode === 0) {
-    console.log("Download complete!");
-  } else {
+  if (exitCode !== 0) {
     const error = await new Response(proc.stderr).text();
     throw new Error("Download failed: " + error);
+  }
+
+  try {
+    const tempFile = Bun.file(tempPath);
+    await Bun.s3.write(outputPath, tempFile);
+  } finally {
+    await unlink(tempPath);
   }
 
   return outputPath;

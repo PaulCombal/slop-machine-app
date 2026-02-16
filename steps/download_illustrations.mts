@@ -4,8 +4,8 @@ import { fetchWithRetry, sleep } from "../utils/utils.mts";
 
 async function dummy(outputFolder: string) {
 	const sourceFile = Bun.file(`/assets/debug/sentence_1_illustration.mp4`);
-	await Bun.write(outputFolder + `/sentence_1_illustration.mp4`, sourceFile);
-	await Bun.write(outputFolder + `/sentence_2_illustration.mp4`, sourceFile);
+	await Bun.s3.write(outputFolder + `/sentence_1_illustration.mp4`, sourceFile)
+	await Bun.s3.write(outputFolder + `/sentence_2_illustration.mp4`, sourceFile);
 }
 
 async function downloadIllustration(

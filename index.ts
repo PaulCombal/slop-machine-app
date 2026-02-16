@@ -5,7 +5,7 @@ import downloadIllustrations from "./steps/download_illustrations.mts";
 import {
 	createOuptutFolder,
 	compileAndSaveVideoConfig,
-	sendRenderMessage,
+	sendRenderMessage, ensureDevelopmentAssets,
 } from "./utils/utils.mts";
 import { getAuthenticatedClient, uploadShort } from "./utils/google.mts";
 import { remotionRenderQueueEvents, videoQueue } from "./clients/queues.mts";
@@ -55,4 +55,10 @@ async function fullPipelineForOneVideo() {
 	}
 }
 
+await ensureDevelopmentAssets();
 await fullPipelineForOneVideo();
+// const personaName = 'debug';
+// const personaSourcePrefix = `personae/${personaName}/`;
+// console.log(`👤 Syncing persona [${personaName}] from S3 to }...`);
+// const s3Objects = await Bun.s3.list({ prefix: 'output' });
+// console.log(s3Objects)

@@ -89,7 +89,7 @@ async function dummy(
 	sentenceId: string,
 ) {
 	const sourceFile = Bun.file(`/assets/debug/sentence_${sentenceId}.ogg`);
-	await Bun.write(folder + `/sentence_${sentenceId}.ogg`, sourceFile);
+	await Bun.s3.write(folder + `/sentence_${sentenceId}.ogg`, sourceFile);
 	const subsFile = Bun.file(`/assets/debug/sentence_${sentenceId}_subs.json`);
 	sentence.wordsAlignment = await subsFile.json();
 }
@@ -132,7 +132,7 @@ async function sentenceToSpeechKokoro(
 
 	const audioResponse = await fetch(wavUrl);
 	const audioFilePath = `${folderName}/sentence_${sentenceId}.ogg`;
-	await Bun.write(audioFilePath, audioResponse);
+	await Bun.s3.write(audioFilePath, audioResponse);
 
 	const srtResponse = await fetch(srtUrl);
 	const srtContent = await srtResponse.text();
@@ -168,7 +168,7 @@ async function sentenceToSpeechElevenlabs(
 	const audioFilePath = folderName + `/sentence_${sentenceId}.ogg`;
 	const audioBuffer = Buffer.from(audio.audio_base64, "base64");
 
-	await Bun.write(audioFilePath, audioBuffer);
+	await Bun.s3.write(audioFilePath, audioBuffer);
 	sentence.wordsAlignment = getWordLevelTimestamps(audio.alignment);
 }
 
