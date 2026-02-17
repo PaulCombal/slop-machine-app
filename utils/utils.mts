@@ -26,6 +26,9 @@ export async function compileAndSaveVideoConfig(
 ) {
 	const outputConfig: OutputConfig = {
 		seed,
+		video: {
+			fps: process.env.DEBUG === 'false' ? 60 : 25
+		},
 		satisfyingVideo: satisfyingVideoPath,
 		persona,
 		topic,

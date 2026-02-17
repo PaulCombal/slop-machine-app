@@ -21,6 +21,9 @@ export type ScriptSentence = {
 
 export type OutputConfig = {
 	seed: number;
+	video: {
+		fps: number;
+	};
 	persona: PersonaConfig;
 	sentences: ScriptSentence[];
 	topic: FullTopicContext;

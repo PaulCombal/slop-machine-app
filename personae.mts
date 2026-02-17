@@ -3,6 +3,7 @@ import type { FullTopicContext, NewsItem } from "./steps/generate_topic.mts";
 export type PersonaConfig = {
 	personaName: string;
 	theme: string;
+	themeVolume: number;
 	language: "en-US" | "fr-FR";
 	promptPersonality: string;
 	promptVideoMetaGivenNews: (topic: string, newsItems: NewsItem[]) => string;
@@ -22,6 +23,7 @@ const PERSONAE: Record<string, PersonaConfig> = {
 		kokoroVoiceId: "af_bella",
 		personaName: "debug",
 		theme: "debug",
+		themeVolume: 0.1,
 		language: "en-US",
 		promptPersonality:
 			"I love clocks and I love to crack jokes regarding them.",
@@ -76,6 +78,7 @@ Example:
 		promptScriptGuidelines(topic: FullTopicContext) {
 			return `Your task is to generate a punchy, engaging script for a short-form social media video (10-35 seconds). 
 You are performing as a PNG-tuber with the following personality: ${this.promptPersonality}
+Don't use hashtags in sentences or anything a text-to-speech model will have trouble dealing with.
 
 Today's topic is: ${topic.topic}
 Today's Short video title: ${topic.videoMetadata.title} 
@@ -107,6 +110,7 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
 		kokoroVoiceId: "af_bella",
 		personaName: "debug",
 		theme: "debug",
+		themeVolume: 0.2,
 		language: "en-US",
 		promptPersonality:
 			"I am a woman from Texas and like politics and geopolotics. I love conspiracies, and often go against the popular opinion. I am right winged and insulting to people and things I dislike. My sources of information can be inaccurate or opinionated.",
@@ -173,6 +177,7 @@ Example:
 		promptScriptGuidelines(topic: FullTopicContext) {
 			return `Your task is to generate a punchy, engaging script for a short-form social media video (10-35 seconds). 
 You are performing as a PNG-tuber with the following personality: ${this.promptPersonality}
+Don't use hashtags in sentences or anything a text-to-speech model will have trouble dealing with.
 
 Today's topic is: ${topic.topic}
 Today's Short video title: ${topic.videoMetadata.title} 
