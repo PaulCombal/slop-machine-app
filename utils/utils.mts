@@ -3,7 +3,8 @@ import type { PersonaConfig } from "../personae.mts";
 import { videoQueue } from "../clients/queues.mts";
 import { join, relative } from "node:path";
 import { readdir } from "node:fs/promises";
-import type {FullTopicContext} from "../steps/generate_topic.mts";
+import type { FullTopicContext } from "../steps/generate_topic.mts";
+import type { PersonaGroupConfig } from "../persona_group.mts";
 
 export async function createOuptutFolder() {
 	const now = new Date();
@@ -19,18 +20,37 @@ export async function createOuptutFolder() {
 export async function compileAndSaveVideoConfig(
 	seed: number,
 	folder: string,
-	persona: PersonaConfig,
+	personae: PersonaConfig | PersonaGroupConfig,
 	sentences: ScriptSentence[],
 	satisfyingVideoPath: string,
-	topic: FullTopicContext
+	topic: FullTopicContext,
 ) {
 	const outputConfig: OutputConfig = {
 		seed,
 		video: {
-			fps: process.env.DEBUG === 'false' ? 60 : 25
+			fps:
+				process.env.DEBUG === "false" || process.env.VIDEO_QUALITY === "low"
+					? 60
+					: 25,
+			width:
+				process.env.DEBUG === "false" || process.env.VIDEO_QUALITY === "low"
+					? 1080
+					: 720,
+			height:
+				process.env.DEBUG === "false" || process.env.VIDEO_QUALITY === "low"
+					? 1920
+					: 1280,
 		},
 		satisfyingVideo: satisfyingVideoPath,
-		persona,
+		personae:
+			"personae" in personae
+				? personae
+				: {
+						personae: [personae],
+						prompt: "",
+						theme: personae.theme,
+						themeVolume: personae.themeVolume,
+					},
 		topic,
 		sentences,
 	};
@@ -43,11 +63,16 @@ export async function compileAndSaveVideoConfig(
 	return outputConfig;
 }
 
-export async function sendRenderMessage(folder: string) {
+export async function sendRenderMessage(
+	folder: string,
+	options: Record<string, any> = {},
+) {
 	return await videoQueue.add(
 		"remotion-render",
 		{
 			folderPath: folder,
+			fake: !!options.fake,
+			showProgress: !!options.showProgress,
 		},
 		{
 			attempts: 1,
@@ -102,17 +127,13 @@ export async function fetchWithRetry(
 	}
 }
 
-export async function ensureDevelopmentAssets() {
-	if (process.env.DEBUG === "false") {
-		return;
-	}
-
-	const personaeExist = await Bun.s3.list({ prefix: "personae/debug/" });
+async function ensurePersona(id: string) {
+	const personaeExist = await Bun.s3.list({ prefix: `personae/${id}/` });
 
 	if (!personaeExist.contents) {
-		console.log("Syncing personae/debug...");
-		// In a real app, you'd loop through your local /assets/personae/debug folder
-		const personaDir = "/assets/personae/debug";
+		console.log(`Syncing personae/${id}...`);
+		// In a real app, you'd loop through your local /assets/personae/${id folder
+		const personaDir = `/assets/personae/${id}`;
 		const files = await readdir(personaDir, {
 			recursive: true,
 			withFileTypes: true,
@@ -122,14 +143,23 @@ export async function ensureDevelopmentAssets() {
 			if (f.isFile()) {
 				const fullLocalPath = join(f.parentPath, f.name);
 
-				// Calculate the S3 key (e.g., "personae/debug/subdir/file.json")
+				// Calculate the S3 key (e.g., "personae/${id}/subdir/file.json")
 				const relativePath = relative(personaDir, fullLocalPath);
-				const s3Key = join("personae/debug/", relativePath);
+				const s3Key = join(`personae/${id}/`, relativePath);
 
 				await Bun.s3.write(s3Key, Bun.file(fullLocalPath));
 			}
 		}
 	}
+}
+
+export async function ensureDevelopmentAssets() {
+	if (process.env.DEBUG === "false") {
+		return;
+	}
+
+	ensurePersona("debug");
+	ensurePersona("redneck");
 
 	// 2. Check for "audio/themes/debug.ogg"
 	const audioExists = await Bun.s3.exists("audio/themes/debug.ogg");

@@ -3,6 +3,7 @@ import myElevenLabsClient from "../clients/elevenlabs.ts";
 import type { CharacterAlignmentResponseModel } from "elevenlabs/api";
 import type { PersonaConfig } from "../personae.mts";
 import { Client } from "@gradio/client";
+import type { PersonaGroupConfig } from "../persona_group.mts";
 
 function getWordLevelTimestamps(alignment: CharacterAlignmentResponseModel) {
 	const {
@@ -186,6 +187,37 @@ export async function scriptSentencesToSpeech(
 	} else {
 		for (let i = 0; i < sentences.length; i++) {
 			await sentenceToSpeech(sentences[i]!, folderName, `${i + 1}`, persona);
+		}
+	}
+}
+
+export async function scriptSentencesToSpeechForGroup(
+	folderName: string,
+	sentences: ScriptSentence[],
+	personaGroup: PersonaGroupConfig,
+): Promise<void> {
+	if (process.env.TTS_GENERATION_PARALLEL === "true") {
+		const tasks = sentences.map((sentence, index) => {
+			const persona = personaGroup.personae.find(
+				(p) => p.id === sentence.personaId,
+			);
+			if (!persona) {
+				throw new Error("Persona not found for sentence");
+			}
+			return sentenceToSpeech(sentence, folderName, `${index + 1}`, persona);
+		});
+
+		await Promise.all(tasks);
+	} else {
+		for (let i = 0; i < sentences.length; i++) {
+			const sentence = sentences[i]!;
+			const persona = personaGroup.personae.find(
+				(p) => p.id === sentence.personaId,
+			);
+			if (!persona) {
+				throw new Error("Persona not found for sentence");
+			}
+			await sentenceToSpeech(sentence, folderName, `${i + 1}`, persona);
 		}
 	}
 }

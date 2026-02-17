@@ -1,6 +1,5 @@
-import { generateScriptOnTopic } from "./steps/generate_script.mts";
-import { scriptSentencesToSpeech } from "./steps/tts.mts";
-import { getPersona } from "./personae.mts";
+import { generateScriptOnTopicForGroup } from "./steps/generate_script.mts";
+import { scriptSentencesToSpeechForGroup } from "./steps/tts.mts";
 import downloadIllustrations from "./steps/download_illustrations.mts";
 import {
 	createOuptutFolder,
@@ -11,17 +10,26 @@ import {
 import { getAuthenticatedClient, uploadShort } from "./utils/google.mts";
 import { remotionRenderQueueEvents, videoQueue } from "./clients/queues.mts";
 import { pickAndDownloadSatisfyingVideo } from "./steps/download_satisfying.mts";
-import { getTopic } from "./steps/generate_topic.mts";
+import { type FullTopicContext } from "./steps/generate_topic.mts";
+import { getPersonaGroup } from "./persona_group.mts";
 
-async function fullPipelineForOneVideo(personaName: string) {
+async function fullPipelineForOneVideo(personaGroupName: string) {
 	const seed = Math.random();
-	const persona = getPersona(personaName);
+	const personaGroup = getPersonaGroup(personaGroupName);
 
 	console.log("== Generating topic");
-	const topic = await getTopic(persona);
+	const topic: FullTopicContext = {
+		topic: "Trump wants to make Canada the 51st US state",
+		latestNews: [],
+		videoMetadata: {
+			description: "Trump threatens to make moves to get a hold of Canada.",
+			title: "Trump wants Canada!",
+			hashtags: ["#Canada", "#Trump"],
+		},
+	};
 
 	console.log("== Generating script");
-	const sentences = await generateScriptOnTopic(persona, topic);
+	const sentences = await generateScriptOnTopicForGroup(personaGroup, topic);
 	const folder = await createOuptutFolder();
 
 	console.log(`== Downloading illustrations (${sentences.length} total)`);
@@ -31,7 +39,7 @@ async function fullPipelineForOneVideo(personaName: string) {
 	const tasks = [
 		downloadIllustrations(sentences, folder),
 		pickAndDownloadSatisfyingVideo(seed, folder),
-		scriptSentencesToSpeech(folder, sentences, persona),
+		scriptSentencesToSpeechForGroup(folder, sentences, personaGroup),
 	] as const;
 
 	const results = await Promise.all(tasks);
@@ -41,12 +49,12 @@ async function fullPipelineForOneVideo(personaName: string) {
 	await compileAndSaveVideoConfig(
 		seed,
 		folder,
-		persona,
+		personaGroup,
 		sentences,
 		satisfyingVideoPath,
 		topic,
 	);
-	const job = await sendRenderMessage(folder);
+	const job = await sendRenderMessage(folder, process.env.DEBUG !== "false");
 
 	console.log("== Waiting for render to complete");
 	try {
@@ -71,6 +79,5 @@ async function fullPipelineForOneVideo(personaName: string) {
 	}
 }
 
-const personaName = process.argv[2] ?? "debug";
 await ensureDevelopmentAssets();
-await fullPipelineForOneVideo(personaName);
+await fullPipelineForOneVideo("redneckBffDebug");

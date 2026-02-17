@@ -3,6 +3,7 @@ import type { ScriptSentence } from "../types/app";
 import type { PersonaConfig } from "../personae.mts";
 import { parseAiJson, promptLlm } from "../utils/llm.mts";
 import type { FullTopicContext } from "./generate_topic.mts";
+import type { PersonaGroupConfig } from "../persona_group.mts";
 
 function dummy(): ScriptSentence[] {
 	return [
@@ -12,13 +13,19 @@ function dummy(): ScriptSentence[] {
 			stance: "talking",
 			illustration: "Microphone",
 			wordsAlignment: [],
+			personaId: "debug",
+			posXRange: 0.2,
+			posXOffset: 0.7,
 		},
 		{
 			sentence:
 				"Do people forget we have lives outside our screens? Jobs, sleep, just... breathing?!",
-			stance: "stupid",
+			stance: "talking",
 			illustration: "clock",
 			wordsAlignment: [],
+			personaId: "redneck",
+			posXRange: 0.2,
+			posXOffset: 0.3,
 		},
 	];
 }
@@ -59,6 +66,35 @@ async function addIllustrationLink(sentences: ScriptSentence[]) {
 			sentence.illustrationVideo = validFile!;
 			usedVideoIds.add(selectedVideo.id);
 		}
+	}
+}
+
+function addPersonaPosition(
+	sentence: ScriptSentence,
+	personaGroup: PersonaGroupConfig,
+) {
+	const persona = personaGroup.personae.find(
+		(p) => p.id === sentence.personaId,
+	);
+	if (!persona) {
+		throw new Error("Persona not found");
+	}
+
+	if (personaGroup.personae.length > 1) {
+		sentence.posXRange = persona.groupPosXRange;
+		sentence.posXOffset = persona.groupPosXOffset;
+	} else {
+		sentence.posXRange = persona.posXRange;
+		sentence.posXOffset = persona.posXOffset;
+	}
+}
+
+function addPersonaPositionToSentences(
+	sentences: ScriptSentence[],
+	personaGroup: PersonaGroupConfig,
+) {
+	for (const sentence of sentences) {
+		addPersonaPosition(sentence, personaGroup);
 	}
 }
 
@@ -131,6 +167,71 @@ JSON Structure:
 	);
 
 	const sentences: ScriptSentence[] = parseAiJson(text);
+
+	for (const sentence of sentences) {
+		sentence.personaId = persona.id;
+		sentence.posXOffset = persona.posXOffset;
+		sentence.posXRange = persona.posXRange;
+	}
+
 	await addIllustrationLink(sentences);
+	return sentences;
+}
+
+export async function generateScriptOnTopicForGroup(
+	personaGroup: PersonaGroupConfig,
+	topic: FullTopicContext,
+): Promise<ScriptSentence[]> {
+	if (process.env.DEBUG !== "false") {
+		return dummy();
+	}
+
+	const personaeDescription = personaGroup.personae.map(
+		(p) => `(ID: '${p.id}') ${p.personaName}: ${p.promptPersonality}\n`,
+	);
+	const personaeStances = personaGroup.personae.map(
+		(p) => `${p.personaName}: ${p.stances.join(", ")}\n`,
+	);
+
+	const text = await promptLlm(
+		`# ROLE
+You are an expert Scriptwriter for "PNGTuber" YouTube Shorts. You specialize in high-retention, fast-paced dialogue (snappy banter) between multiple characters.
+
+# CAST & ASSETS
+${personaeDescription}
+
+# ANIMATION CONSTRAINTS
+Each character MUST only use their specific available stances:
+${personaeStances}
+
+# CONTEXT
+Video Topic: ${topic.topic}
+Title: ${topic.videoMetadata.title}
+Description: ${topic.videoMetadata.description}
+${topic.latestNews?.length ? "Contextual News: " + topic.latestNews.map((news) => news.description).join(" | ") : ""}
+
+# ADDITIONAL INSTRUCTIONS
+- ${personaGroup.prompt}
+- SCRIPTLENGTH: Keep sentences short (under 15 words) to maintain "Shorts" pacing.
+- DYNAMICS: Ensure characters interrupt, agree, or clash with each other to create energy.
+- VISUALS: The "illustration" must be a concrete noun for stock footage search (e.g., "coffee splash" not "morning vibes").
+
+# OUTPUT REQUIREMENT
+Return ONLY a valid JSON array of objects. Do not include markdown formatting or "json" code blocks.
+
+[
+  {
+    "personaId": "Exact ID from Cast",
+    "sentence": "The spoken line.",
+    "stance": "Exact stance name from the character's list",
+    "illustration": "Stock footage search term"
+  }
+]`,
+		"gemini",
+	);
+
+	const sentences: ScriptSentence[] = parseAiJson(text);
+	await addIllustrationLink(sentences);
+	addPersonaPositionToSentences(sentences, personaGroup);
 	return sentences;
 }

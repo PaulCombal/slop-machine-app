@@ -1,6 +1,12 @@
 import type { FullTopicContext, NewsItem } from "./steps/generate_topic.mts";
 
 export type PersonaConfig = {
+	id: string;
+	size: number;
+	posXRange: number;
+	posXOffset: number;
+	groupPosXRange: number;
+	groupPosXOffset: number;
 	personaName: string;
 	theme: string;
 	themeVolume: number;
@@ -19,9 +25,15 @@ export type PersonaConfig = {
 
 const PERSONAE: Record<string, PersonaConfig> = {
 	debug: {
+		id: "debug",
+		size: 1500,
+		posXRange: 0.6,
+		posXOffset: 0.2,
+		groupPosXRange: 0.2,
+		groupPosXOffset: 0.7,
 		elevenLabsVoiceId: "cgSgspJ2msm6clMCkdW9",
 		kokoroVoiceId: "af_bella",
-		personaName: "debug",
+		personaName: "Debug",
 		theme: "debug",
 		themeVolume: 0.1,
 		language: "en-US",
@@ -106,9 +118,15 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
 		],
 	},
 	redneck: {
+		id: "redneck",
+		size: 1000,
+		posXRange: 0.6,
+		posXOffset: 0.2,
+		groupPosXRange: 0.2,
+		groupPosXOffset: 0.2,
 		elevenLabsVoiceId: "cgSgspJ2msm6clMCkdW9",
 		kokoroVoiceId: "af_bella",
-		personaName: "debug",
+		personaName: "Redneck",
 		theme: "debug",
 		themeVolume: 0.2,
 		language: "en-US",
@@ -192,17 +210,7 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
    - Conflict: Express a strong emotional critique (anger, disbelief, or feigned outrage).
    - Vibe: Prioritize character voice and emotion over dry facts.`;
 		},
-		stances: [
-			"cracking_up",
-			"excited",
-			"mastermind",
-			"mischievous",
-			"shocked",
-			"starstruck",
-			"stupid",
-			"talking",
-			"thinking",
-		],
+		stances: ["talking"],
 	},
 };
 

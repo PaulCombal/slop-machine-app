@@ -24,6 +24,7 @@ Les vars d'en qui ne sont pas set dans le docker compose
 | ILLUSTRATION_DL_PARALLEL | Run illustration downloads concurrently | true/unset                 |
 | TTS_PROVIDER             | Choose which TTS provider to use        | elevenlabs/kokoro(default) |
 | SKIP_YT_UPLOAD           | Skip uploading video to YT Shorts       | unset/any                  |
+| VIDEO_QUALITY            | Ask for low res render                  | low/any                    |
 
 ## Code format
 
