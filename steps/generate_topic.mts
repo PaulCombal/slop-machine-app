@@ -100,13 +100,7 @@ async function getRandomTopic(persona: PersonaConfig): Promise<VideoMetadata> {
 	return parseAiJson(answer);
 }
 
-export async function generateTopic(
-	persona: PersonaConfig,
-): Promise<FullTopicContext> {
-	if (process.env.DEBUG !== "false") {
-		return dummy();
-	}
-
+async function getBbcNews(): Promise<NewsItem[]> {
 	const bbcResponse = await fetch(
 		"https://feeds.bbci.co.uk/news/world/rss.xml",
 	);
@@ -114,13 +108,37 @@ export async function generateTopic(
 		throw new Error("failed to get news");
 	}
 
-	const bbcNews = parseRssFeed(await bbcResponse.text());
+	return parseRssFeed(await bbcResponse.text());
+}
+
+export async function generateTopic(
+	persona: PersonaConfig,
+): Promise<FullTopicContext> {
+	if (process.env.DEBUG !== "false") {
+		return dummy();
+	}
+
+	const newsMappers: Record<string, () => Promise<NewsItem[]>> = {
+		bbc: getBbcNews,
+		// cnn: getCnnNews,
+		// Adding a new source is now just one line
+	};
+
+	const allNews: NewsItem[] = (
+		await Promise.all(
+			persona.newsSources.map(source => {
+				const fetcher = newsMappers[source];
+				if (!fetcher) throw new Error(`Unknown news source: ${source}`);
+				return fetcher();
+			})
+		)
+	).flat();
 
 	const prompt = `
 Context: You are a viral content analyst. Your task is to scan the following news headlines and identify exactly ONE topic with the highest potential for social media virality, intense debate, or fringe theories.
 The topic must be something I can discuss about. Here are a few words about myself: ${persona.promptPersonality}
 Latest News Headlines:
-${bbcNews.map((news) => `${news.title} | ${news.description} (${news.pubDate})`).join("\n")}
+${allNews.map((news) => `${news.title} | ${news.description} (${news.pubDate})`).join("\n")}
 
 Criteria for Selection:
 1. Polarizing: Issues that force people to take sides (political, ethical, or cultural divides).

@@ -18,9 +18,7 @@ export type PersonaConfig = {
 	stances: string[];
 	elevenLabsVoiceId: string;
 	kokoroVoiceId: string;
-	// newsType: 'global' | 'specialized'
-	// newsSources: ('bbc' | 'tech')[] // Latest hot news
-	// specialized news: 'clocks' // Only look for latest news using word 'clock'
+	newsSources: ('bbc' | 'todo add more sources')[] // Latest hot news
 };
 
 const PERSONAE: Record<string, PersonaConfig> = {
@@ -37,6 +35,7 @@ const PERSONAE: Record<string, PersonaConfig> = {
 		theme: "debug",
 		themeVolume: 0.1,
 		language: "en-US",
+		newsSources: ['bbc'],
 		promptPersonality:
 			"I love clocks and I love to crack jokes regarding them.",
 		promptVideoMetaGivenNews(topic: string, newsItems: NewsItem[]) {
@@ -130,6 +129,7 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
 		theme: "debug",
 		themeVolume: 0.2,
 		language: "en-US",
+		newsSources: ['bbc'],
 		promptPersonality:
 			"I am a man from Texas and like politics and geopolotics. I love conspiracies, and often go against the popular opinion. I am right winged and insulting to people and things I dislike. My sources of information can be inaccurate or opinionated.",
 		promptVideoMetaGivenNews(topic: string, newsItems: NewsItem[]) {
