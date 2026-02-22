@@ -47,18 +47,17 @@ async function fullPipelineForOneVideo(personaGroupName: string, personaCarrying
 		scriptSentencesToSpeechForGroup(folder, sentences, personaGroup),
 	] as const;
 
-	const results = await Promise.all(tasks);
-	const satisfyingVideoPath = results[1];
+	await Promise.all(tasks);
 
-	console.log(`== Queuing render (${folder})`);
 	await compileAndSaveVideoConfig(
 		seed,
 		folder,
 		personaGroup,
 		sentences,
-		satisfyingVideoPath,
 		topic,
 	);
+
+	console.log(`== Queuing render (${folder})`);
 	const job = await sendRenderMessage(folder, {showProgress: process.env.DEBUG !== 'false'});
 
 	console.log("== Waiting for render to complete");
@@ -69,19 +68,19 @@ async function fullPipelineForOneVideo(personaGroupName: string, personaCarrying
 		return;
 	}
 
-	console.log("== Uploading to Youtube");
-	const googleCredentials = await getAuthenticatedClient();
-	await uploadShort(
-		topic.videoMetadata,
-		googleCredentials,
-		folder + "/render.mp4",
-	);
+	// console.log("== Uploading to Youtube");
+	// const googleCredentials = await getAuthenticatedClient();
+	// await uploadShort(
+	// 	topic.videoMetadata,
+	// 	googleCredentials,
+	// 	folder + "/render.mp4",
+	// );
 
-	if (process.env.DEBUG !== "false") {
+	// if (process.env.DEBUG !== "false") {
 		console.log("== Debug mode, closing queue and exiting");
 		await videoQueue.close();
 		await remotionRenderQueueEvents.close();
-	}
+	// }
 }
 
 await ensureDevelopmentAssets();

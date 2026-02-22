@@ -22,7 +22,6 @@ export async function compileAndSaveVideoConfig(
 	folder: string,
 	personae: PersonaConfig | PersonaGroupConfig,
 	sentences: ScriptSentence[],
-	satisfyingVideoPath: string,
 	topic: FullTopicContext,
 ) {
 	const personaGroup = "personae" in personae
@@ -45,6 +44,10 @@ export async function compileAndSaveVideoConfig(
 		if (!persona.stances.includes(sentence.stance)) {
 			throw new Error('Sentence makes use of an unknown stance')
 		}
+
+		if (!sentence.wordsAlignment) {
+			throw new Error('No words alignment for sentence')
+		}
 	}
 
 
@@ -64,7 +67,7 @@ export async function compileAndSaveVideoConfig(
 					? 1920
 					: 1280,
 		},
-		satisfyingVideo: satisfyingVideoPath,
+		satisfyingVideo: `${folder}/satisfying.webm`,
 		personae: personaGroup,
 		topic,
 		sentences,

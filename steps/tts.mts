@@ -118,7 +118,7 @@ async function sentenceToSpeechKokoro(
 	sentenceId: string,
 	persona: PersonaConfig,
 ) {
-	const client = await Client.connect("NeuralFalcon/Kokoro-TTS-Subtitle");
+	const client = await Client.connect("PaulCombal/Kokoro-TTS-Subtitle");
 	const result = await client.predict<Record<string, any>>("/KOKORO_TTS_API", {
 		text: sentence.sentence,
 		Language: "American English",

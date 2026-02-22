@@ -77,7 +77,8 @@ function addPersonaPosition(
 		(p) => p.id === sentence.personaId,
 	);
 	if (!persona) {
-		throw new Error("Persona not found");
+		console.log('Peronae in this group: ', personaGroup.personae)
+		throw new Error("Persona not found: " + sentence.personaId);
 	}
 
 	if (personaGroup.personae.length > 1) {
