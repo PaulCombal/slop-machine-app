@@ -20,10 +20,12 @@
 		"google-auth-library": "^10.5.0",
 		"googleapis": "^171.4.0",
 		"linkedom": "^0.18.12",
-		"pexels": "^1.4.0"
+		"pexels": "^1.4.0",
+		"zod": "^4.3.6"
 	},
 	"scripts": {
 		"grab-google-token-locally": "bun run scripts/grabLocalGoogleToken.mts",
-		"request-render": "bun run scripts/requestRender.mts"
+		"upload-s3": "bun run scripts/uploadFileToS3.mts",
+		"reupload-yt": "bun run scripts/reuploadToYt.ts"
 	}
 }

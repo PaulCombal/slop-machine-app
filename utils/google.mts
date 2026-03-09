@@ -2,6 +2,8 @@ import { type Credentials, OAuth2Client } from "google-auth-library";
 import { createServer } from "http";
 import { google } from "googleapis";
 import type { VideoMetadata } from "../steps/generate_topic.mts";
+import { Readable } from "node:stream";
+import type {OutputConfig} from "../types/app";
 
 // 1. Replace these with your credentials from Google Cloud Console
 const CLIENT_ID = process.env.GOOGLE_OAUTH2_CLIENT_ID;
@@ -113,7 +115,8 @@ export async function uploadShort(
 
 	const youtube = google.youtube({ version: "v3", auth });
 
-	console.log("🚀 Starting upload via authenticated client...");
+	console.log(`🚀 Starting upload (${title}) via authenticated client...`);
+	const s3File = Bun.s3.file(videoPath);
 
 	const response = await youtube.videos.insert({
 		part: ["snippet", "status"],
@@ -121,7 +124,7 @@ export async function uploadShort(
 			snippet: {
 				title,
 				description: meta.description,
-				categoryId: "42",
+				categoryId: "25", // TODO make flexible
 			},
 			status: {
 				privacyStatus: "private",
@@ -129,11 +132,23 @@ export async function uploadShort(
 			},
 		},
 		media: {
-			body: Bun.s3.file(videoPath),
+			body: Readable.fromWeb(s3File.stream() as any),
 		},
 	});
 
 	console.log(`✅ Upload Successful! ID: ${response.data.id}`);
 	console.log(`Watch URL: https://youtube.com/shorts/${response.data.id}`);
 	return response.data;
+}
+
+export async function reuploadShort(renderId: string) {
+	if (process.env.DEBUG !== "false" || process.env.SKIP_YT_UPLOAD) {
+		console.log("Skipping upload to YT in debug mode");
+		return null;
+	}
+
+	const googleCredentials = await getAuthenticatedClient();
+	const config: OutputConfig = await Bun.s3.file('output/' + renderId + '/config.json').json();
+	const metadata = config.topic.videoMetadata;
+	return uploadShort(metadata, googleCredentials, 'output/' + renderId + '/render.mp4')
 }

@@ -1,6 +1,7 @@
 import { DOMParser, NodeList } from "linkedom";
-import { parseAiJson, promptLlm } from "../utils/llm.mts";
+import {parseAiJson, promptLlm, promptLlmObject} from "../utils/llm.mts";
 import type { PersonaConfig } from "../personae.mts";
+import {z} from "zod";
 
 export type NewsItem = {
 	title: string;
@@ -13,6 +14,23 @@ export type VideoMetadata = {
 	title: string;
 	description: string;
 };
+
+export const VideoMetadataSchema = z.object({
+	hashtags: z
+		.array(z.string())
+		.min(1)
+		.describe('An array of 3-5 trending, relevant hashtags with the # symbol'),
+
+	title: z
+		.string()
+		.min(5)
+		.max(100)
+		.describe('A catchy, click-worthy title for the video'),
+
+	description: z
+		.string()
+		.describe('A brief, engaging SEO-friendly description of the video content'),
+});
 
 export type FullTopicContext = {
 	latestNews: NewsItem[];
@@ -91,8 +109,9 @@ async function getTopicFromNews(
 	persona: PersonaConfig,
 ): Promise<VideoMetadata> {
 	const prompt = persona.promptVideoMetaGivenNews(topic, googleNews);
-	const answer = await promptLlm(prompt, "hf");
-	return parseAiJson(answer);
+	return promptLlmObject<VideoMetadata>(prompt, "hf", VideoMetadataSchema);
+	// const answer = await promptLlmObject<VideoMetadata>(prompt, "hf", VideoMetadataSchema);
+	// return parseAiJson(answer);
 }
 
 async function getRandomTopic(persona: PersonaConfig): Promise<VideoMetadata> {

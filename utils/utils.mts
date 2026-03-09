@@ -1,6 +1,6 @@
 import type { OutputConfig, ScriptSentence } from "../types/app";
 import type { PersonaConfig } from "../personae.mts";
-import { videoQueue } from "../clients/queues.mts";
+import {flowProducer, videoQueue} from "../clients/queues.mts";
 import { join, relative } from "node:path";
 import { readdir } from "node:fs/promises";
 import type { FullTopicContext } from "../steps/generate_topic.mts";
@@ -14,7 +14,12 @@ export async function createOuptutFolder() {
 		.replace(/\..+/, "")
 		.replaceAll(":", "-");
 
-	return `output/${timestamp}_${crypto.randomUUID().slice(0, 8)}`;
+	const renderId = `${timestamp}_${crypto.randomUUID().slice(0, 8)}`;
+
+	return {
+		renderId,
+		folder: `output/${renderId}`
+	};
 }
 
 export async function compileAndSaveVideoConfig(
@@ -82,13 +87,13 @@ export async function compileAndSaveVideoConfig(
 }
 
 export async function sendRenderMessage(
-	folder: string,
+	renderId: string,
 	options: {fake?: boolean, showProgress?: boolean} = {},
 ) {
 	return await videoQueue.add(
 		"remotion-render",
 		{
-			folderPath: folder,
+			renderId: renderId,
 			fake: !!options.fake,
 			showProgress: !!options.showProgress,
 		},
@@ -100,6 +105,23 @@ export async function sendRenderMessage(
 			},
 		},
 	);
+}
+
+export async function createVideoWorkflow(renderId: string, platforms: ('yt' | 'fb' | 'ig')[]) {
+	await flowProducer.add({
+		name: 'post-video',
+		queueName: 'post-service-queue',
+		data: { renderId, platforms },
+		children: [
+			{
+				name: 'render-video',
+				queueName: 'render-service-queue',
+				data: { renderId, fake: false, showProgress: false },
+			},
+		],
+	});
+
+	console.log('Flow created: Post will trigger automatically after Render.');
 }
 
 export const sleep = (ms: number) =>

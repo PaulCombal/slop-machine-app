@@ -4,15 +4,14 @@ import downloadIllustrations from "./steps/download_illustrations.mts";
 import {
 	createOuptutFolder,
 	compileAndSaveVideoConfig,
-	sendRenderMessage,
-	ensureDevelopmentAssets,
+	ensureDevelopmentAssets, createVideoWorkflow, sendRenderMessage,
 } from "./utils/utils.mts";
-import { getAuthenticatedClient, uploadShort } from "./utils/google.mts";
-import { remotionRenderQueueEvents, videoQueue } from "./clients/queues.mts";
 import { pickAndDownloadSatisfyingVideo } from "./steps/download_satisfying.mts";
 import {generateTopic} from "./steps/generate_topic.mts";
 import { getPersonaGroup } from "./persona_group.mts";
 import {getPersona} from "./personae.mts";
+import {remotionRenderQueueEvents, videoQueue} from "./clients/queues.mts";
+import {getAuthenticatedClient, uploadShort} from "./utils/google.mts";
 
 async function fullPipelineForOneVideo(personaGroupName: string, personaCarryingConversation: string) {
 	const seed = Math.random();
@@ -35,30 +34,32 @@ async function fullPipelineForOneVideo(personaGroupName: string, personaCarrying
 
 	console.log("== Generating script");
 	const sentences = await generateScriptOnTopicForGroup(personaGroup, topic);
-	const folder = await createOuptutFolder();
+	const renderData = await createOuptutFolder();
 
 	console.log(`== Downloading illustrations (${sentences.length} total)`);
 	console.log("== Downloading satisfying video");
 	console.log("== TTS processing");
 
 	const tasks = [
-		downloadIllustrations(sentences, folder),
-		pickAndDownloadSatisfyingVideo(seed, folder),
-		scriptSentencesToSpeechForGroup(folder, sentences, personaGroup),
+		downloadIllustrations(sentences, renderData.folder),
+		pickAndDownloadSatisfyingVideo(seed, renderData.folder),
+		scriptSentencesToSpeechForGroup(renderData.folder, sentences, personaGroup),
 	] as const;
 
 	await Promise.all(tasks);
 
 	await compileAndSaveVideoConfig(
 		seed,
-		folder,
+		renderData.folder,
 		personaGroup,
 		sentences,
 		topic,
 	);
 
-	console.log(`== Queuing render (${folder})`);
-	const job = await sendRenderMessage(folder, {showProgress: process.env.DEBUG !== 'false'});
+	console.log(`== Queuing render (${renderData.renderId})`);
+	// await createVideoWorkflow(renderData.renderId, ['ig', 'fb', 'yt']);
+
+	const job = await sendRenderMessage(renderData.renderId, {showProgress: process.env.DEBUG !== 'false'});
 
 	console.log("== Waiting for render to complete");
 	try {
@@ -68,19 +69,19 @@ async function fullPipelineForOneVideo(personaGroupName: string, personaCarrying
 		return;
 	}
 
-	// console.log("== Uploading to Youtube");
-	// const googleCredentials = await getAuthenticatedClient();
-	// await uploadShort(
-	// 	topic.videoMetadata,
-	// 	googleCredentials,
-	// 	folder + "/render.mp4",
-	// );
+	console.log("== Uploading to Youtube");
+	const googleCredentials = await getAuthenticatedClient();
+	await uploadShort(
+		topic.videoMetadata,
+		googleCredentials,
+		"output/" + renderData.renderId + "/render.mp4",
+	);
 
 	// if (process.env.DEBUG !== "false") {
-		console.log("== Debug mode, closing queue and exiting");
-		await videoQueue.close();
-		await remotionRenderQueueEvents.close();
-	// }
+	console.log("== Debug mode, closing queue and exiting");
+	await videoQueue.close();
+	await remotionRenderQueueEvents.close();
+	//
 }
 
 await ensureDevelopmentAssets();

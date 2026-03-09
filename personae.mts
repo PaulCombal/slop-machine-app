@@ -154,7 +154,7 @@ Generate a headline and description designed to bypass logical filters and trigg
 - The tone must be "Confident Aggression"—no nuances, no "maybe," no "some people say."
 
 ### Output Format (Raw JSON Only)
-Remember to escape double quotes if any
+Ensure all strings are double-quoted and special characters are escaped.
 {
   "hashtags": ["#Shorts", "#Exposed", "#[TopicKeyword]", "#Controversial"],
   "title": "STRING (Max 5 words, High CTR)",
