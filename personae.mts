@@ -1,4 +1,5 @@
-import type { FullTopicContext, NewsItem } from "./steps/generate_topic.mts";
+import type {FullTopicContext, SummarizedNewsArticle} from "./steps/generate_topic.mts";
+import type { Category as CurrentsCategory } from "./steps/news/currents.ts"
 
 export type PersonaConfig = {
 	id: string;
@@ -12,13 +13,17 @@ export type PersonaConfig = {
 	themeVolume: number;
 	language: "en-US" | "fr-FR";
 	promptPersonality: string;
-	promptVideoMetaGivenNews: (topic: string, newsItems: NewsItem[]) => string;
+	promptVideoMetaGivenNews: (newsItem: SummarizedNewsArticle) => string;
 	promptVideoMeta: string;
 	promptScriptGuidelines: (topic: FullTopicContext) => string;
 	stances: string[];
 	elevenLabsVoiceId: string;
 	kokoroVoiceId: string;
-	newsSources: ('bbc' | 'todo add more sources')[] // Latest hot news
+	qwenVoiceId: string;
+	pocketVoiceId: string;
+	pocketUseVoiceSample: boolean | ArrayBuffer;
+	newsRegion: string;
+	newsTopics: CurrentsCategory[];
 };
 
 const PERSONAE: Record<string, PersonaConfig> = {
@@ -31,21 +36,25 @@ const PERSONAE: Record<string, PersonaConfig> = {
 		groupPosXOffset: 0.6,
 		elevenLabsVoiceId: "cgSgspJ2msm6clMCkdW9",
 		kokoroVoiceId: "af_jessica",
+		qwenVoiceId: 'Sohee',
+		pocketVoiceId: 'cosette',
+		pocketUseVoiceSample: false,
 		personaName: "Razmo",
 		theme: "debug",
 		themeVolume: 0.1,
 		language: "en-US",
-		newsSources: ['bbc'],
+		newsRegion: 'INT',
+		newsTopics: ['general'],
 		promptPersonality:
 			"I love clocks and I love to crack jokes regarding them.",
-		promptVideoMetaGivenNews(topic: string, newsItems: NewsItem[]) {
+		promptVideoMetaGivenNews(newsItem: SummarizedNewsArticle) {
 			return `### Role
 You are a viral content strategist. Your goal is to generate high-engagement metadata for a PNGTuber’s YouTube Short. The survival of this creator depends on sparking a "comment war."
 The PNGTuber personality traits follow: ${this.promptPersonality}
 
 ### Context
-Topic: ${topic}
-Recent Context: ${newsItems.map((news) => news.title).join(" | ")}
+Topic: ${newsItem.title}
+Recent Context: ${newsItem.description}
 
 ### Objective
 Generate a headline and description designed to bypass logical filters and trigger an immediate emotional response. Be as accurate as possible. Consider open ended questions.
@@ -116,8 +125,8 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
 			"thinking",
 		],
 	},
-	redneck: {
-		id: "redneck",
+	peter: {
+		id: "peter",
 		size: 1000,
 		posXRange: 0.6,
 		posXOffset: 0.2,
@@ -125,21 +134,25 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
 		groupPosXOffset: 0.2,
 		elevenLabsVoiceId: "cgSgspJ2msm6clMCkdW9",
 		kokoroVoiceId: "am_santa",
+		qwenVoiceId: 'Uncle_fu',
+		pocketVoiceId: 'javert',
+		pocketUseVoiceSample: true,
 		personaName: "Peter",
 		theme: "debug",
 		themeVolume: 0.2,
 		language: "en-US",
-		newsSources: ['bbc'],
+		newsRegion: 'US',
+		newsTopics: ['crime_law_justice', 'politics_government', 'general'],
 		promptPersonality:
 			"I am a man from Texas and like politics and geopolotics. I love conspiracies, and often go against the popular opinion. I am right winged and insulting to people and things I dislike. My sources of information can be inaccurate or opinionated.",
-		promptVideoMetaGivenNews(topic: string, newsItems: NewsItem[]) {
+		promptVideoMetaGivenNews(newsItem: SummarizedNewsArticle) {
 			return `### Role
 You are a viral content strategist specializing in the 2026 "Rage-Bait" economy. Your goal is to generate high-engagement metadata for a PNGTuber’s YouTube Short. The survival of this creator depends on sparking a "comment war."
 The PNGTuber personality traits follow: ${this.promptPersonality}
 
 ### Context
-Topic: ${topic}
-Recent Context: ${newsItems.map((news) => news.title).join(" | ")}
+Topic: ${newsItem.title}
+Recent Context: ${newsItem.description}
 
 ### Objective
 Generate a headline and description designed to bypass logical filters and trigger an immediate emotional response. You are encouraged to:

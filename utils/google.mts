@@ -127,7 +127,7 @@ export async function uploadShort(
 				categoryId: "25", // TODO make flexible
 			},
 			status: {
-				privacyStatus: "private",
+				privacyStatus: "public",
 				selfDeclaredMadeForKids: false,
 			},
 		},

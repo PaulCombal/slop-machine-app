@@ -23,7 +23,7 @@ function dummy(): ScriptSentence[] {
 			stance: "talking",
 			illustration: "clock",
 			wordsAlignment: [],
-			personaId: "redneck",
+			personaId: "peter",
 			posXRange: 0.2,
 			posXOffset: 0.3,
 		},
@@ -77,7 +77,7 @@ function addPersonaPosition(
 		(p) => p.id === sentence.personaId,
 	);
 	if (!persona) {
-		console.log('Peronae in this group: ', personaGroup.personae)
+		console.log('Personae in this group: ', personaGroup.personae)
 		throw new Error("Persona not found: " + sentence.personaId);
 	}
 
@@ -193,10 +193,11 @@ export async function generateScriptOnTopicForGroup(
 	const personaeStances = personaGroup.personae.map(
 		(p) => `${p.personaName}: ${p.stances.join(", ")}\n`,
 	);
+	const news = topic.latestNews.length ? 'Contextual news: \n' + topic.latestNews.map(newsItem => `Article title: ${newsItem.title}\nArticle description: ${newsItem.description}\nArticle summary:${newsItem.summary}`) : '';
 
 	const text = await promptLlm(
 		`# ROLE
-You are an expert Scriptwriter for "PNGTuber" YouTube Shorts. You specialize in high-retention, fast-paced dialogue (snappy banter) between multiple characters.
+You are a Scriptwriter for "PNGTuber" YouTube Shorts. You specialize in high-retention, fast-paced dialogue (snappy banter) between multiple characters.
 
 # CAST & ASSETS
 ${personaeDescription}
@@ -209,11 +210,11 @@ ${personaeStances}
 Video Topic: ${topic.topic}
 Title: ${topic.videoMetadata.title}
 Description: ${topic.videoMetadata.description}
-${topic.latestNews?.length ? "Contextual News: " + topic.latestNews.map((news) => news.description).join(" | ") : ""}
+${news}
 
 # ADDITIONAL INSTRUCTIONS
 - ${personaGroup.prompt}
-- SCRIPTLENGTH: Keep sentences short (under 15 words) to maintain "Shorts" pacing.
+- SCRIPTLENGTH: Keep sentences under 15-20 words to maintain "Shorts" pacing.
 - DYNAMICS: Ensure characters interrupt, agree, or clash with each other to create energy.
 - VISUALS: The "illustration" must be a concrete noun for stock footage search (e.g., "coffee splash" not "morning vibes").
 

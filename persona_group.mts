@@ -8,12 +8,12 @@ export type PersonaGroupConfig = {
 };
 
 const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
-	redneckBffDebug: {
+	peterBffDebug: {
 		prompt:
-			"Redneck and Debug are very good friends. Debug often asks questions to Redneck about her opinionated political views, and keeps her light hearted spirit.",
+			"Peter (Griffin) and Razmo are good friends. Peter explains the news to the viewers and comments smugly on it, he leads the conversation. Razmo sometimes makes a joke or asks a question to Peter, while keeping her light hearted spirit. Their dialog MUST create engagement at all cost, even if that means giving approximate informations or using reasoning shortcuts.",
 		theme: "debug",
-		themeVolume: 0.1,
-		personae: [getPersona("razmo"), getPersona("redneck")],
+		themeVolume: 0.05,
+		personae: [getPersona("razmo"), getPersona("peter")],
 	},
 };
 

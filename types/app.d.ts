@@ -18,7 +18,7 @@ export type ScriptSentence = {
 	stance: string;
 	illustration: string;
 	illustrationVideo?: PexelsVideoFile;
-	wordsAlignment: object[];
+	wordsAlignment: {start: number | null | undefined; end: number | undefined; text: string;}[];
 	posXRange: number;
 	posXOffset: number;
 };

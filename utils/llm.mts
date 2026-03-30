@@ -11,6 +11,7 @@ const HF_MODEL = huggingface("katanemo/Arch-Router-1.5B");
 export async function promptLlm(
 	prompt: string,
 	model: "gemini" | "glm" | "hf",
+	toolNames: ('googleSearch')[] = []
 ): Promise<string> {
 	const models = {
 		gemini: GEMINI_MODEL,
@@ -18,8 +19,14 @@ export async function promptLlm(
 		hf: HF_MODEL,
 	};
 
+	const tools: Record<string, any> = {};
+
+	if (toolNames.includes('googleSearch')) {
+		tools.google_search = google.tools.googleSearch({});
+	}
+
 	const modelObj = models[model];
-	const { text } = await generateText({ prompt, model: modelObj });
+	const { text } = await generateText({ prompt, model: modelObj, tools });
 	return text;
 }
 

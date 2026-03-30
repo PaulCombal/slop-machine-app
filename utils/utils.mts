@@ -198,8 +198,8 @@ export async function ensureDevelopmentAssets() {
 		return;
 	}
 
-	ensurePersona("razmo");
-	ensurePersona("redneck");
+	await ensurePersona("razmo");
+	await ensurePersona("peter");
 
 	// 2. Check for "audio/themes/debug.ogg"
 	const audioExists = await Bun.s3.exists("audio/themes/debug.ogg");
