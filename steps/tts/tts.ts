@@ -27,14 +27,19 @@ async function sentenceToSpeech(
     return await dummy(folderName, sentence, sentenceId);
   }
 
-  if (process.env.TTS_PROVIDER === "elevenlabs") {
-    await sentenceToSpeechElevenlabs(sentence, folderName, sentenceId, persona);
-  } else if (process.env.TTS_PROVIDER === 'qwen') {
-    await sentenceToSpeechQwen(sentence, folderName, sentenceId, persona);
-  } else if (process.env.TTS_PROVIDER === 'pocket') {
-    await sentenceToSpeechPocket(sentence, folderName, sentenceId, persona);
-  } else {
-    await sentenceToSpeechKokoro(sentence, folderName, sentenceId, persona);
+  switch (persona.ttsProvider) {
+    case "elevenlabs":
+      await sentenceToSpeechElevenlabs(sentence, folderName, sentenceId, persona);
+      break;
+    case 'qwen':
+      await sentenceToSpeechQwen(sentence, folderName, sentenceId, persona);
+      break;
+    case 'pocket':
+      await sentenceToSpeechPocket(sentence, folderName, sentenceId, persona);
+      break;
+    default:
+      await sentenceToSpeechKokoro(sentence, folderName, sentenceId, persona);
+      break;
   }
 }
 

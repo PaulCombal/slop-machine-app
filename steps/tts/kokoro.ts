@@ -11,7 +11,7 @@ export async function sentenceToSpeechKokoro(
   const client = await Client.connect("PaulCombal/Kokoro-TTS-Subtitle");
   const result = await client.predict<Record<string, any>>("/KOKORO_TTS_API", {
     text: sentence.sentence,
-    Language: "American English",
+    Language: persona.kokoroLanguage,
     voice: persona.kokoroVoiceId,
     speed: 0.95,
     translate_text: false,

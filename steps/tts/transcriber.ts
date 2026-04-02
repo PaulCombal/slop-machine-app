@@ -1,5 +1,4 @@
-import {type AutomaticSpeechRecognitionOutput, pipeline} from '@xenova/transformers';
-import {unlink} from "node:fs/promises";
+import {type AutomaticSpeechRecognitionOutput, pipeline} from '@huggingface/transformers';
 import {spawnSync} from "node:child_process";
 
 function decodeAudio(filePath: string): Float32Array {

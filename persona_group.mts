@@ -15,6 +15,12 @@ const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
 		themeVolume: 0.05,
 		personae: [getPersona("razmo"), getPersona("peter")],
 	},
+	peterBffDebugFr: {
+		prompt: "Peter (Griffin) et Razmo sont amis. Peter explique l'article aux téléspectateurs, menant la conversation. Razmo, de temps à autre, fait une blague ou pose une question à Peter. Leur dialogue DOIT absolument susciter l'intérêt, quitte à donner des informations approximatives ou à utiliser des raccourcis de raisonnement.",
+		theme: "debug",
+		themeVolume: 0.05,
+		personae: [getPersona("razmoFr"), getPersona("peterFr")],
+	},
 };
 
 export function getPersonaGroup(name: keyof typeof PERSONA_GROUPS) {
