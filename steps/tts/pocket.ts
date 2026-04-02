@@ -90,7 +90,7 @@ async function alignAndCleanAndSave(sentenceId: string, response: Response, sent
       text: s.text.trim()
     };
   });
-  sentence.wordsAlignment = forceAlign(formattedAsr, sentence.sentence.split(' '));
+  sentence.wordsAlignment = forceAlign(formattedAsr, sentence.sentence.split(' '), alignmentData.duration);
 
   if (!sentence.wordsAlignment.length) {
     throw new Error('Failed to word align');

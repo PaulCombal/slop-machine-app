@@ -84,9 +84,8 @@ async function generateVideoMetadataFromNews(
   return promptLlmObject<VideoMetadata>(prompt, "hf", VideoMetadataSchema);
 }
 
-async function getRandomTopic(persona: PersonaConfig): Promise<VideoMetadata> {
-  const answer = await promptLlm(persona.promptVideoMeta, "hf");
-  return parseAiJson(answer);
+async function generateRandomTopic(persona: PersonaConfig): Promise<VideoMetadata> {
+  return await promptLlmObject<VideoMetadata>(persona.promptVideoMeta, "hf", VideoMetadataSchema);
 }
 
 export async function generateTopic(
@@ -136,7 +135,7 @@ Output Format:
 
   if (!articleIndex) {
     console.log("There is no hot topic to cover today");
-    const videoMeta = await getRandomTopic(persona);
+    const videoMeta = await generateRandomTopic(persona);
     return {
       latestNews: [],
       topic: videoMeta.title + " - " + videoMeta.description,

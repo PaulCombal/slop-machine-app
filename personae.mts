@@ -85,7 +85,7 @@ Example: for topic "Putin"
 		promptVideoMeta: `Generate a controversial, rage-inducing topic that would make people argue online.
 Be affirmative, choose a topic of society like the tipping culture, or changing work ethics.
 
-Respond ONLY with valid JSON in this exact format, no other text. Remember to escape double quotes if any:
+Respond in this exact format, no other text:
 {
   "hashtags": ["#Tag1", "#Tag2", "#Tag3", "#Tag4", "#TagN"],
   "title": "A short catchy title (max 5 words)",
@@ -198,7 +198,7 @@ Generate a headline and description designed to bypass logical filters and trigg
 3. Use Hyper-Polarization: Frame the topic as a "You vs. Them" or "They are lying to you" scenario.
 4. Shorts-Specific Urgency: Use "Power Words" like *EXPOSED, SCAM, BANNED, HIDDEN,* or *FINALLY.*
 
-Respond ONLY with valid JSON in this exact format, no other text. Remember to escape double quotes if any:
+Respond in this exact format, no other text:
 {
   "hashtags": ["#Tag1", "#Tag2", "#Tag3", "#Tag4", "#TagN"],
   "title": "A short catchy title (max 5 words)",
@@ -300,7 +300,7 @@ Générer un titre et une description conçus pour contourner les filtres logiqu
 3. Utiliser l'Hyper-Polarisation : "Vous vs Eux".
 4. Urgence spécifique aux Shorts : Utilise des mots comme EXPOSÉ, ARNAQUE, BANNI, CACHÉ.
 
-Réponds UNIQUEMENT avec du JSON valide dans ce format exact, sans autre texte :
+Réponds dans ce format exact, sans autre texte :
 {
   "hashtags": ["#Tag1", "#Tag2", "#Tag3"],
   "title": "Un titre court et accrocheur (max 5 mots)",
@@ -389,7 +389,7 @@ Exemple pour le sujet "Poutine" :
 		promptVideoMeta: `Génère un sujet controversé qui pousse les gens à se disputer en ligne.
 Sois affirmatif, choisis un sujet de société comme la culture du pourboire ou l'évolution de l'éthique de travail.
 
-Réponds UNIQUEMENT avec du JSON valide dans ce format exact, sans autre texte. Échappe les guillemets doubles :
+Réponds dans ce format exact, sans autre texte :
 {
   "hashtags": ["#Tag1", "#Tag2", "#Tag3", "#Tag4", "#TagN"],
   "title": "Un titre court et accrocheur (max 5 mots)",

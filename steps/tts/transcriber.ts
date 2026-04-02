@@ -38,7 +38,8 @@ type AlignmentFmt = {
 
 export function forceAlign(
   whisperWords: AlignmentFmt[],
-  correctWords: string[]
+  correctWords: string[],
+  durationOfClipInSeconds: number
 ): AlignmentFmt[] {
   const aligned: AlignmentFmt[] = [];
   let whisperIdx = 0;
@@ -105,6 +106,14 @@ export function forceAlign(
       if (whisperIdx < whisperWords.length) {
         whisperIdx++;
       }
+    }
+  }
+
+  if (aligned.length > 0) {
+    const lastWord = aligned[aligned.length - 1]!;
+    lastWord.end = durationOfClipInSeconds;
+    if ((lastWord.start ?? 0) > lastWord.end) {
+      lastWord.start = Math.max(0, lastWord.end - 0.1);
     }
   }
 
