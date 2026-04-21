@@ -21,6 +21,12 @@ const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
 		themeVolume: 0.05,
 		personae: [getPersona("razmoFr"), getPersona("peterFr")],
 	},
+	techNormal: {
+		prompt: 'Julian and Clara are tech reviewers for a Youtube tech channel. They are presenting the latest tech topic right now.',
+		theme: 'jazz',
+		themeVolume: 0.05,
+		personae: [getPersona('techguy'), getPersona('techgirl')]
+	}
 };
 
 export function getPersonaGroup(name: keyof typeof PERSONA_GROUPS) {

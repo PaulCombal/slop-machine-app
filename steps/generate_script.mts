@@ -187,6 +187,8 @@ export async function generateScriptOnTopicForGroup(
 		return dummy();
 	}
 
+	const modelAlias = process.env.GROUP_MODEL_ALIAS || 'gemini';
+
 	const personaeDescription = personaGroup.personae.map(
 		(p) => `(ID: '${p.id}') ${p.personaName}: ${p.promptPersonality}\n`,
 	);
@@ -219,7 +221,7 @@ ${news}
 - VISUALS: The "illustration" must be a concrete noun for stock footage search (e.g., "coffee splash" not "morning vibes").
 
 # OUTPUT REQUIREMENT
-Return ONLY a valid JSON array of objects. Do not include markdown formatting or "json" code blocks.
+Return ONLY a valid JSON array of objects. Do not include markdown formatting or "json" code blocks. Do NOT use em dashes or speech pacing info.
 
 [
   {
@@ -229,7 +231,7 @@ Return ONLY a valid JSON array of objects. Do not include markdown formatting or
     "illustration": "Stock footage search term"
   }
 ]`,
-		"gemini",
+		modelAlias,
 	);
 
 	const sentences: ScriptSentence[] = parseAiJson(text);

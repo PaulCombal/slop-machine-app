@@ -14,13 +14,13 @@ await rerunTts(renderId);
 console.log('Done');
 
 async function rerunTts(renderId: string) {
-  if (process.env.DEBUG !== "false" || process.env.SKIP_YT_UPLOAD) {
+  if (process.env.DEBUG !== "false") {
     console.log("Skipping rerunning TTS in debug mode");
     return null;
   }
 
   const config: OutputConfig = await Bun.s3.file('output/' + renderId + '/config.json').json();
-  await scriptSentencesToSpeechForGroup(`output/${renderId}`, config.sentences, getPersonaGroup('peterBffDebug'))
+  await scriptSentencesToSpeechForGroup(`output/${renderId}`, config.sentences, getPersonaGroup('techNormal'))
   console.log('new config', config)
   await Bun.s3.write('output/' + renderId + '/config.json', JSON.stringify(config, null, 2))
 }

@@ -127,11 +127,14 @@ Instructions:
 4. Output strictly valid JSON. No prose, no explanations.
 
 Output Format:
-{"article_index": 5} OR {"article_index": null}
+{"articleIndex": 5} OR {"articleIndex": null}
 `;
 
-  const promptResult = await promptLlm(prompt, "gemini");
-  const articleIndex: number | null = parseAiJson(promptResult).article_index;
+  const modelAlias = process.env.TOPIC_MODEL_ALIAS || "gemini";
+  const TopicSelectionSchema = z.object({
+    articleIndex: z.number().nullable()
+  });
+  const {articleIndex} = await promptLlmObject(prompt, modelAlias, TopicSelectionSchema);
 
   if (!articleIndex) {
     console.log("There is no hot topic to cover today");

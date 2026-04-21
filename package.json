@@ -4,21 +4,22 @@
 	"type": "module",
 	"private": true,
 	"devDependencies": {
-		"@biomejs/biome": "^2.3.15",
+		"@biomejs/biome": "^2.4.12",
 		"@types/bun": "latest"
 	},
 	"peerDependencies": {
-		"typescript": "^5"
+		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"@ai-sdk/google": "^3.0.23",
-		"@ai-sdk/huggingface": "^1.0.32",
-		"@gradio/client": "^2.0.4",
-		"@huggingface/transformers": "^4.0.1",
-		"ai": "^6.0.78",
-		"bullmq": "^5.69.1",
+		"@ai-sdk/google": "^3.0.64",
+		"@ai-sdk/huggingface": "^1.0.43",
+		"@ai-sdk/mistral": "^3.0.30",
+		"@gradio/client": "^2.2.0",
+		"@huggingface/transformers": "^4.1.0",
+		"ai": "^6.0.168",
+		"bullmq": "^5.75.2",
 		"elevenlabs": "^1.59.0",
-		"google-auth-library": "^10.5.0",
+		"google-auth-library": "^10.6.2",
 		"googleapis": "^171.4.0",
 		"pexels": "^1.4.0",
 		"zod": "^4.3.6"

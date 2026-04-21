@@ -72,4 +72,5 @@ async function fullPipelineForOneVideo(personaGroupName: string, personaCarrying
 }
 
 await ensureDevelopmentAssets();
-await fullPipelineForOneVideo("peterBffDebug", "peter");
+// await fullPipelineForOneVideo("peterBffDebug", "peter");
+await fullPipelineForOneVideo("techNormal", "techguy");

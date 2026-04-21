@@ -169,8 +169,9 @@ export async function fetchWithRetry(
 
 async function ensurePersona(id: string) {
 	const personaeExist = await Bun.s3.list({ prefix: `personae/${id}/` });
+	const actualFiles = (personaeExist.contents ?? []).filter(c => (c.size || 0) > 0)
 
-	if (!personaeExist.contents) {
+	if (!actualFiles.length) {
 		console.log(`Syncing personae/${id}...`);
 		// In a real app, you'd loop through your local /assets/personae/${id folder
 		const personaDir = `/assets/personae/${id}`;
@@ -200,6 +201,8 @@ export async function ensureDevelopmentAssets() {
 
 	await ensurePersona("razmo");
 	await ensurePersona("peter");
+	await ensurePersona("techguy");
+	await ensurePersona("techgirl");
 
 	// 2. Check for "audio/themes/debug.ogg"
 	const audioExists = await Bun.s3.exists("audio/themes/debug.ogg");
