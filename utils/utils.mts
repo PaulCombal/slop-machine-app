@@ -36,6 +36,7 @@ export async function compileAndSaveVideoConfig(
 			prompt: "",
 			theme: personae.theme,
 			themeVolume: personae.themeVolume,
+			channelId: ''
 		};
 
 	// Validate sentences

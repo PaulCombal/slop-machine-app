@@ -26,6 +26,7 @@ export type PersonaConfig = {
 	pocketUseVoiceSample: boolean | ArrayBuffer;
 	newsRegion: string;
 	newsTopics: CurrentsCategory[];
+	ytCategoryCode: string;
 };
 
 const PERSONAE: Record<string, PersonaConfig> = {
@@ -49,6 +50,7 @@ const PERSONAE: Record<string, PersonaConfig> = {
 		language: "en-US",
 		newsRegion: 'INT',
 		newsTopics: ['general'],
+		ytCategoryCode: '25',
 		promptPersonality:
 			"I love clocks and I love to crack jokes regarding them.",
 		promptVideoMetaGivenNews(newsItem: SummarizedNewsArticle) {
@@ -149,6 +151,7 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
 		language: "en-US",
 		newsRegion: 'US',
 		newsTopics: ['crime_law_justice', 'politics_government', 'general'],
+		ytCategoryCode: '25',
 		promptPersonality:
 			"I am a man from Texas and like politics and geopolotics. I love conspiracies, and often go against the popular opinion. I am right winged and insulting to people and things I dislike. My sources of information can be inaccurate or opinionated.",
 		promptVideoMetaGivenNews(newsItem: SummarizedNewsArticle) {
@@ -251,6 +254,7 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
 		language: "fr-FR",
 		newsRegion: 'FR',
 		newsTopics: ['crime_law_justice', 'politics_government', 'general'],
+		ytCategoryCode: '25',
 		promptPersonality:
 			"Je suis un homme parisien, passionné par la politique et la géopolitique. J'adore les théories du complot et je vais souvent à contre-courant de l'opinion populaire. Je suis de droite, radical et insultant envers les gens et les choses que je n'aime pas. Mes sources d'information peuvent être inexactes ou très orientées.",
 		promptVideoMetaGivenNews(newsItem: SummarizedNewsArticle) {
@@ -353,6 +357,7 @@ ${topic.latestNews?.length ? "Dernières actualités sur le sujet : " + topic.la
 		language: "fr-FR",
 		newsRegion: 'INT',
 		newsTopics: ['general'],
+		ytCategoryCode: '25',
 		promptPersonality:
 			"J'adore les horloges et j'aime faire des blagues à leur sujet à tout bout de champ.",
 		promptVideoMetaGivenNews(newsItem: SummarizedNewsArticle) {
@@ -453,6 +458,7 @@ ${topic.latestNews?.length ? "Dernières actus sur ce sujet : " + topic.latestNe
 		language: "en-US",
 		newsRegion: 'US',
 		newsTopics: ['science_technology'],
+		ytCategoryCode: '28',
 		promptPersonality:
 			"I am a tech enthusiast in my late 20s from the USA. I like discussing about and reviewing the latest tech products, trends, and gadgets.",
 		promptVideoMetaGivenNews(newsItem: SummarizedNewsArticle) {
@@ -552,6 +558,7 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
 		language: "en-US",
 		newsRegion: 'US',
 		newsTopics: ['science_technology'],
+		ytCategoryCode: '28',
 		promptPersonality:
 			"I am a female tech enthusiast in my late 20s from the USA. I like discussing about and reviewing the latest tech products, trends, and gadgets. I care about education and humanitarian topics on the side.",
 		promptVideoMetaGivenNews(newsItem: SummarizedNewsArticle) {

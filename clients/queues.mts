@@ -1,7 +1,7 @@
 import {FlowProducer, Queue, QueueEvents} from "bullmq";
 
 const connectionConfig = {
-	host: "valkey",
+	host: process.env.QUEUE_HOST || "valkey",
 	port: 6379,
 };
 

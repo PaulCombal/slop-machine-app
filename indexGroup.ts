@@ -57,20 +57,31 @@ async function fullPipelineForOneVideo(personaGroupName: string, personaCarrying
   }
 
   console.log("== Uploading to Youtube");
-  const googleCredentials = await getAuthenticatedClient();
+  const googleCredentials = await getAuthenticatedClient(personaGroup.channelId);
   await uploadShort(
     topic.videoMetadata,
     googleCredentials,
     "output/" + renderData.renderId + "/render.mp4",
   );
 
-  // if (process.env.DEBUG !== "false") {
-  console.log("== Debug mode, closing queue and exiting");
+  console.log("== Closing queue and exiting");
   await videoQueue.close();
   await remotionRenderQueueEvents.close();
-  //
+  process.exit(0);
 }
 
 await ensureDevelopmentAssets();
-// await fullPipelineForOneVideo("peterBffDebug", "peter");
-await fullPipelineForOneVideo("techNormal", "techguy");
+
+const personaGroupName = process.argv[2] || process.env.DEFAULT_PERSONA_GROUP;
+if (!personaGroupName) {
+  console.log(process.argv);
+  throw new Error('Missing personaGroupName');
+}
+
+const carryingPersona = process.argv[3] || process.env.DEFAULT_CARRYING_PERSONA;
+if (!carryingPersona) {
+  console.log(process.argv);
+  throw new Error('Missing carryingPersona');
+}
+
+await fullPipelineForOneVideo(personaGroupName, carryingPersona);

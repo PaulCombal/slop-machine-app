@@ -5,6 +5,7 @@ export type PersonaGroupConfig = {
 	theme: string;
 	themeVolume: number;
 	personae: PersonaConfig[];
+	channelId: string;
 };
 
 const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
@@ -14,18 +15,21 @@ const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
 		theme: "debug",
 		themeVolume: 0.05,
 		personae: [getPersona("razmo"), getPersona("peter")],
+		channelId: "peterRazmo"
 	},
 	peterBffDebugFr: {
 		prompt: "Peter (Griffin) et Razmo sont amis. Peter explique l'article aux téléspectateurs, menant la conversation. Razmo, de temps à autre, fait une blague ou pose une question à Peter. Leur dialogue DOIT absolument susciter l'intérêt, quitte à donner des informations approximatives ou à utiliser des raccourcis de raisonnement.",
 		theme: "debug",
 		themeVolume: 0.05,
 		personae: [getPersona("razmoFr"), getPersona("peterFr")],
+		channelId: "peterRazmoFr"
 	},
 	techNormal: {
 		prompt: 'Julian and Clara are tech reviewers for a Youtube tech channel. They are presenting the latest tech topic right now.',
 		theme: 'jazz',
 		themeVolume: 0.05,
-		personae: [getPersona('techguy'), getPersona('techgirl')]
+		personae: [getPersona('techguy'), getPersona('techgirl')],
+		channelId: 'tech'
 	}
 };
 

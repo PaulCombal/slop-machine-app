@@ -34,11 +34,13 @@ export const VideoMetadataSchema = z.object({
 export type FullTopicContext = {
   latestNews: SummarizedNewsArticle[];
   topic: string;
+  category: string;
   videoMetadata: VideoMetadata;
 };
 
-function dummy(): { topic: string, latestNews: SummarizedNewsArticle[], videoMetadata: VideoMetadata } {
+function dummy(): FullTopicContext {
   return {
+    category: '25',
     topic: "Hillary Epstein coverup",
     latestNews: [
       {
@@ -140,6 +142,7 @@ Output Format:
     console.log("There is no hot topic to cover today");
     const videoMeta = await generateRandomTopic(persona);
     return {
+      category: persona.ytCategoryCode,
       latestNews: [],
       topic: videoMeta.title + " - " + videoMeta.description,
       videoMetadata: videoMeta,
@@ -157,6 +160,7 @@ Output Format:
   const videoMeta = await generateVideoMetadataFromNews(summarizedArticle, persona);
 
   return {
+    category: persona.ytCategoryCode,
     topic: summarizedArticle.title,
     latestNews: [summarizedArticle],
     videoMetadata: videoMeta,
