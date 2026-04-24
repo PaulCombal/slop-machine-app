@@ -36,8 +36,16 @@ export async function promptLlm(
 	}
 
 
-	const { text } = await generateText({ prompt, model: modelObj, tools });
-	return text;
+	try {
+		const result = await generateText({ prompt, model: modelObj, tools });
+		return result.text;
+	} catch (error) {
+		console.log('Caught the generatetext error')
+		console.log(error)
+		console.log('reason')
+		console.log(error.reason)
+		throw error;
+	}
 }
 
 export async function promptLlmObject<T>(
