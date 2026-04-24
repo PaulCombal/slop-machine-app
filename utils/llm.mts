@@ -4,9 +4,9 @@ import { huggingface } from "@ai-sdk/huggingface";
 import { mistral } from '@ai-sdk/mistral';
 import {z} from "zod";
 
-const GEMINI_MODEL = google("gemini-2.5-flash");
+// const GEMINI_MODEL = google("gemini-2.5-flash");
+const GEMINI_MODEL = google("gemini-flash-latest");
 const GLM_MODEL = huggingface("zai-org/GLM-5");
-// const HF_MODEL = huggingface("HuggingFaceTB/SmolLM3-3B");
 const HF_MODEL = huggingface("katanemo/Arch-Router-1.5B");
 const MISTRAL_MODEL = mistral('mistral-large-latest');
 

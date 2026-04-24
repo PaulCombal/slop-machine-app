@@ -9,7 +9,7 @@ export type PersonaGroupConfig = {
 };
 
 const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
-	peterBffDebug: {
+	peterBffRazmo: {
 		prompt:
 			"Peter (Griffin) and Razmo are good friends. Peter explains the news to the viewers and comments smugly on it, he leads the conversation. Razmo sometimes makes a joke or asks a question to Peter, while keeping her light hearted spirit. Their dialog MUST create engagement at all cost, even if that means giving approximate informations or using reasoning shortcuts.",
 		theme: "debug",
@@ -17,7 +17,7 @@ const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
 		personae: [getPersona("razmo"), getPersona("peter")],
 		channelId: "peterRazmo"
 	},
-	peterBffDebugFr: {
+	peterBffRazmoFr: {
 		prompt: "Peter (Griffin) et Razmo sont amis. Peter explique l'article aux téléspectateurs, menant la conversation. Razmo, de temps à autre, fait une blague ou pose une question à Peter. Leur dialogue DOIT absolument susciter l'intérêt, quitte à donner des informations approximatives ou à utiliser des raccourcis de raisonnement.",
 		theme: "debug",
 		themeVolume: 0.05,

@@ -29,6 +29,7 @@
 		"upload-s3": "bun run scripts/uploadFileToS3.mts",
 		"reupload-yt": "bun run scripts/reuploadToYt.ts",
 		"rerun-tts": "bun run scripts/rerunTts.ts",
-		"rerender-video": "bun run scripts/rerenderVideo.ts"
+		"rerender-video": "bun run scripts/rerenderVideo.ts",
+		"benchmark-models": "bun run scripts/benchmarkModels.ts"
 	}
 }

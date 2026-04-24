@@ -210,8 +210,8 @@ ${personaeStances}
 
 # CONTEXT
 Video Topic: ${topic.topic}
-Title: ${topic.videoMetadata.title}
-Description: ${topic.videoMetadata.description}
+${topic.videoMetadata.title ? `Video title: ${topic.videoMetadata.title}` : ''}
+${topic.videoMetadata.description ? `Video description: ${topic.videoMetadata.description}` : ''}
 ${news}
 
 # ADDITIONAL INSTRUCTIONS
