@@ -25,20 +25,10 @@ export async function createOuptutFolder() {
 export async function compileAndSaveVideoConfig(
 	seed: number,
 	folder: string,
-	personae: PersonaConfig | PersonaGroupConfig,
+	personaGroup: PersonaGroupConfig,
 	sentences: ScriptSentence[],
 	topic: FullTopicContext,
 ) {
-	const personaGroup = "personae" in personae
-		? personae
-		: {
-			personae: [personae],
-			prompt: "",
-			theme: personae.theme,
-			themeVolume: personae.themeVolume,
-			channelId: ''
-		};
-
 	// Validate sentences
 	for (const sentence of sentences) {
 		const persona = personaGroup.personae.find(p => p.id === sentence.personaId);
@@ -205,12 +195,12 @@ export async function ensureDevelopmentAssets() {
 	await ensurePersona("techguy");
 	await ensurePersona("techgirl");
 
-	// 2. Check for "audio/themes/debug.ogg"
-	const audioExists = await Bun.s3.exists("audio/themes/debug.ogg");
+	// 2. Check for "assets/themes/debug.ogg"
+	const audioExists = await Bun.s3.exists("assets/themes/debug.ogg");
 
 	if (!audioExists) {
 		console.log("Syncing debug audio...");
 		const localAudio = "/assets/themes/debug.ogg";
-		await Bun.s3.write("audio/themes/debug.ogg", Bun.file(localAudio));
+		await Bun.s3.write("assets/themes/debug.ogg", Bun.file(localAudio));
 	}
 }

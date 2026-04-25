@@ -1,31 +1,62 @@
 import { unlink } from "node:fs/promises";
 
+export type SatisfyingVideoCategory = 'satisfying' | 'gameplay';
+
 export type SatisfyingVideoData = {
-	category: string;
+	source: 's3' | 'yt';
+	category: SatisfyingVideoCategory;
 	videoId: string;
 	duration: number; // In seconds
 };
 
-export type YtVideoSegment = {
-	videoId: string;
+export type VideoSegment = {
+	video: SatisfyingVideoData;
+	startSeconds: number;
+	endSeconds: number;
 	start: string;
 	end: string;
 };
 
 const SATISFYING: SatisfyingVideoData[] = [
 	{
-		category: "general",
+		source: 'yt',
+		category: "satisfying",
 		videoId: "c0TODv-6G_A", // https://www.youtube.com/watch?v=c0TODv-6G_A
 		duration: 60 * 60,
+	},
+	{
+		source: 's3',
+		category: "gameplay",
+		videoId: "surfer",
+		duration: 60 * 3,
+	},
+	{
+		source: 's3',
+		category: "gameplay",
+		videoId: "Minecraft",
+		duration: 60 * 15,
 	},
 ];
 
 async function downloadSatisfyingVideo(
-	segment: YtVideoSegment,
+	segment: VideoSegment,
 	folder: string,
 ) {
-	const url = `https://www.youtube.com/watch?v=${segment.videoId}`;
-	// const outputPath = `${folder}/%(title)s.%(ext)s`;
+	switch (segment.video.source) {
+		case 's3':
+			return await downloadS3SatisfyingVideo(segment, folder);
+		case "yt":
+			return await downloadYtSatisfyingVideo(segment, folder);
+		default:
+			throw new Error('Unknwown video source: ' + segment.video.source);
+	}
+}
+
+async function downloadYtSatisfyingVideo(
+	segment: VideoSegment,
+	folder: string,
+) {
+	const url = `https://www.youtube.com/watch?v=${segment.video.videoId}`;
 	const outputPath = `${folder}/satisfying.webm`;
 
 	if (process.env.DEBUG !== "false") {
@@ -66,10 +97,56 @@ async function downloadSatisfyingVideo(
 	return outputPath;
 }
 
+async function downloadS3SatisfyingVideo(
+	segment: VideoSegment,
+	folder: string,
+) {
+	const s3File = Bun.s3.file(`assets/satisfying/${segment.video.videoId}.mp4`);
+	const outputPath = `${folder}/satisfying.webm`;
+	const tempPath = `/tmp/video-${Date.now()}.webm`;
+
+	if (process.env.DEBUG !== "false") {
+		const sourceFile = Bun.file(`/assets/debug/satisfying.webm`);
+		await Bun.s3.write(outputPath, sourceFile);
+		return outputPath;
+	}
+
+	const proc = Bun.spawn([
+		"ffmpeg",
+		"-ss", `${segment.startSeconds}`,     // Fast seek (before input)
+		"-i", "pipe:0",                      // Read from stdin
+		"-to", `${segment.endSeconds - segment.startSeconds}`, // Duration
+		"-c:v", "libvpx-vp9",                // WebM Video codec
+		"-crf", "30",                        // Quality (lower is better, 15-35 range)
+		"-b:v", "0",                         // Required for constant quality mode
+		"-c:a", "libopus",                   // WebM Audio codec
+		"-y",                                // Overwrite output
+		tempPath,
+	], {
+		stdin: s3File.stream(),        // Stream S3 file directly into FFmpeg
+	});
+
+	const exitCode = await proc.exited;
+
+	if (exitCode !== 0) {
+		const error = await new Response(proc.stderr).text();
+		throw new Error(`FFmpeg cut failed: ${error}`);
+	}
+
+	try {
+		const tempFile = Bun.file(tempPath);
+		await Bun.s3.write(outputPath, tempFile);
+	} finally {
+		await unlink(tempPath);
+	}
+
+	return outputPath;
+}
+
 export function getSatisfyingVideoSegment(
 	seed: number,
-	category: string,
-): YtVideoSegment {
+	category: SatisfyingVideoCategory,
+): VideoSegment {
 	const CLIP_DURATION = 45;
 	const filtered = SATISFYING.filter((v) => v.category === category);
 
@@ -94,7 +171,9 @@ export function getSatisfyingVideoSegment(
 		new Date(s * 1000).toISOString().slice(11, 19);
 
 	return {
-		videoId: video.videoId,
+		video: video,
+		startSeconds,
+		endSeconds,
 		start: formatTime(startSeconds),
 		end: formatTime(endSeconds),
 	};
@@ -103,7 +182,7 @@ export function getSatisfyingVideoSegment(
 export async function pickAndDownloadSatisfyingVideo(
 	seed: number,
 	folder: string,
-	category = "general",
+	category: SatisfyingVideoCategory = "satisfying",
 ) {
 	const segment = getSatisfyingVideoSegment(seed, category);
 	return await downloadSatisfyingVideo(segment, folder);

@@ -33,7 +33,7 @@ async function fullPipelineForOneVideo(personaGroupName: string, personaCarrying
 
   await Promise.all([
     downloadIllustrations(sentences, renderData.folder),
-    pickAndDownloadSatisfyingVideo(seed, renderData.folder),
+    pickAndDownloadSatisfyingVideo(seed, renderData.folder, personaGroup.satisfyingVideoCategory),
     scriptSentencesToSpeechForGroup(renderData.folder, sentences, personaGroup),
   ]);
 
