@@ -13,5 +13,14 @@ if (!channelId) {
 }
 
 console.log('Starting upload..')
-const res = await reuploadShort(renderId, channelId);
-console.log(res);
+
+try {
+  const res = await reuploadShort(renderId, channelId);
+  console.log(res);
+}
+catch (e) {
+  console.error('Error reuploading video')
+  console.error(e)
+  console.trace(e)
+  process.exit(1)
+}

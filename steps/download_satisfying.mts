@@ -111,6 +111,10 @@ async function downloadS3SatisfyingVideo(
 		return outputPath;
 	}
 
+	console.log(`Checking S3 file: assets/satisfying/${segment.video.videoId}.mp4`);
+	console.log(`S3 File Size: ${s3File.size} bytes`);
+	if (s3File.size === 0) throw new Error("S3 file is empty or missing.");
+
 	const proc = Bun.spawn([
 		"ffmpeg",
 		"-ss", `${segment.startSeconds}`,     // Fast seek (before input)
