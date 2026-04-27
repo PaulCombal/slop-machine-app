@@ -5,16 +5,16 @@ import {
   compileAndSaveVideoConfig,
   createOuptutFolder,
   ensureDevelopmentAssets,
-  sendRenderMessage,
 } from "./utils/utils.mts";
 import {pickAndDownloadSatisfyingVideo} from "./steps/download_satisfying.mts";
 import {generateTopic} from "./steps/generate_topic.mts";
 import {getPersonaGroup} from "./persona_group.mts";
 import {getPersona} from "./personae.mts";
-import {remotionRenderQueueEvents, videoQueue} from "./clients/queues.mts";
 import {getAuthenticatedClient, uploadShort} from "./utils/google.mts";
+import {Job, Worker} from "bullmq";
+import type {OutputConfig} from "./types/app";
 
-async function fullPipelineForOneVideo(personaGroupName: string, personaCarryingConversation: string) {
+async function prepareAllVideoAssets(personaGroupName: string, personaCarryingConversation: string) {
   const seed = Math.random();
   const personaGroup = getPersonaGroup(personaGroupName);
   const carryingPersona = getPersona(personaCarryingConversation);
@@ -45,43 +45,38 @@ async function fullPipelineForOneVideo(personaGroupName: string, personaCarrying
     topic,
   );
 
-  console.log(`== Queuing render (${renderData.renderId})`);
-  const job = await sendRenderMessage(renderData.renderId, {showProgress: process.env.DEBUG !== 'false'});
+  return renderData;
+}
 
-  console.log("== Waiting for render to complete");
-  try {
-    await job.waitUntilFinished(remotionRenderQueueEvents);
-  } catch (e) {
-    console.error("== Render job failed", e);
+console.log('== Creating main app worker')
+new Worker('assets-pipeline', async (job: Job<{personaGroupName: string, carryingPersona: string}>) => {
+  if (job.name === 'generate-assets') {
+    await ensureDevelopmentAssets();
+    const { personaGroupName, carryingPersona } = job.data;
+    const renderData = await prepareAllVideoAssets(personaGroupName, carryingPersona);
+
+    return { renderId: renderData.renderId, fake: false, showProgress: false };
+  }
+
+  if (job.name === 'upload-to-youtube') {
+    const children = await job.getChildrenValues();
+    const values = Object.values(children)[0];
+    console.log('children', values)
+    const renderId = values.renderId;
+    const configFile = Bun.s3.file(`output/${renderId}/config.json`);
+    const config: OutputConfig = await configFile.json();
+    console.log("== Uploading to Youtube");
+    const googleCredentials = await getAuthenticatedClient(config.personae.channelId);
+    await uploadShort(
+      config.topic.videoMetadata,
+      googleCredentials,
+      "output/" + renderId + "/render.mp4",
+    );
+
     return;
   }
 
-  console.log("== Uploading to Youtube");
-  const googleCredentials = await getAuthenticatedClient(personaGroup.channelId);
-  await uploadShort(
-    topic.videoMetadata,
-    googleCredentials,
-    "output/" + renderData.renderId + "/render.mp4",
-  );
-
-  console.log("== Closing queue and exiting");
-  await videoQueue.close();
-  await remotionRenderQueueEvents.close();
-  process.exit(0);
-}
-
-await ensureDevelopmentAssets();
-
-const personaGroupName = process.argv[2] || process.env.DEFAULT_PERSONA_GROUP;
-if (!personaGroupName) {
-  console.log(process.argv);
-  throw new Error('Missing personaGroupName');
-}
-
-const carryingPersona = process.argv[3] || process.env.DEFAULT_CARRYING_PERSONA;
-if (!carryingPersona) {
-  console.log(process.argv);
-  throw new Error('Missing carryingPersona');
-}
-
-await fullPipelineForOneVideo(personaGroupName, carryingPersona);
+  throw new Error('Unknown job: ' + job.name);
+}, {
+  connection: { host: process.env.QUEUE_HOST || 'valkey', port: 6379 }
+});

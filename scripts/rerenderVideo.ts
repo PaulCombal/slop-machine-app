@@ -2,7 +2,7 @@ import type {OutputConfig} from "../types/app";
 import {scriptSentencesToSpeechForGroup} from "../steps/tts/tts.ts";
 import {getPersonaGroup} from "../persona_group.mts";
 import {sendRenderMessage} from "../utils/utils.mts";
-import {remotionRenderQueueEvents, videoQueue} from "../clients/queues.mts";
+import {remotionRenderQueueEvents, renderQueue} from "../clients/queues.mts";
 
 const renderId = process.argv[2];
 
@@ -33,6 +33,6 @@ async function rerenderVideo(renderId: string) {
   }
 
   console.log("== Debug mode, closing queue and exiting");
-  await videoQueue.close();
+  await renderQueue.close();
   await remotionRenderQueueEvents.close();
 }

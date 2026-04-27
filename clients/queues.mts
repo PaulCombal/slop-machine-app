@@ -5,11 +5,15 @@ const connectionConfig = {
 	port: 6379,
 };
 
-export const videoQueue = new Queue("render-service-queue", {
+export const assetsQueue = new Queue("assets-pipeline", {
 	connection: connectionConfig,
 });
 
-export const remotionRenderQueueEvents = new QueueEvents("render-service-queue", {
+export const renderQueue = new Queue("render-pipeline", {
+	connection: connectionConfig,
+});
+
+export const remotionRenderQueueEvents = new QueueEvents("render-pipeline", {
 	connection: connectionConfig,
 });
 
