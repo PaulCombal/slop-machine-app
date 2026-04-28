@@ -8,6 +8,7 @@ export type PersonaGroupConfig = {
 	personae: PersonaConfig[];
 	channelId: string;
 	satisfyingVideoCategory: SatisfyingVideoCategory;
+	endPaddingDurationMs: number;
 };
 
 const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
@@ -18,7 +19,8 @@ const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
 		themeVolume: 0.05,
 		personae: [getPersona("razmo"), getPersona("peter")],
 		channelId: "peterRazmo",
-		satisfyingVideoCategory: 'satisfying'
+		satisfyingVideoCategory: 'satisfying',
+		endPaddingDurationMs: 500
 	},
 	peterBffRazmoFr: {
 		prompt: "Peter (Griffin) et Razmo sont amis. Peter explique l'article aux téléspectateurs, menant la conversation. Razmo, de temps à autre, fait une blague ou pose une question à Peter. Leur dialogue DOIT absolument susciter l'intérêt, quitte à donner des informations approximatives ou à utiliser des raccourcis de raisonnement.",
@@ -26,7 +28,8 @@ const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
 		themeVolume: 0.05,
 		personae: [getPersona("razmoFr"), getPersona("peterFr")],
 		channelId: "peterRazmoFr",
-		satisfyingVideoCategory: 'satisfying'
+		satisfyingVideoCategory: 'satisfying',
+		endPaddingDurationMs: 500
 	},
 	techNormal: {
 		prompt: 'Julian and Clara are tech reviewers for a Youtube tech channel. They are presenting the latest tech topic right now.',
@@ -34,7 +37,8 @@ const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
 		themeVolume: 0.1,
 		personae: [getPersona('techguy'), getPersona('techgirl')],
 		channelId: 'tech',
-		satisfyingVideoCategory: 'gameplay'
+		satisfyingVideoCategory: 'gameplay',
+		endPaddingDurationMs: 500
 	}
 };
 

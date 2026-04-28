@@ -59,13 +59,13 @@ new Worker('assets-pipeline', async (job: Job<{personaGroupName: string, carryin
   }
 
   if (job.name === 'upload-to-youtube') {
+    console.log("== Uploading to Youtube");
+
     const children = await job.getChildrenValues();
     const values = Object.values(children)[0];
-    console.log('children', values)
     const renderId = values.renderId;
     const configFile = Bun.s3.file(`output/${renderId}/config.json`);
     const config: OutputConfig = await configFile.json();
-    console.log("== Uploading to Youtube");
     const googleCredentials = await getAuthenticatedClient(config.personae.channelId);
     await uploadShort(
       config.topic.videoMetadata,
