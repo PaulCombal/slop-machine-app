@@ -18,4 +18,4 @@ COPY --chown=bun:bun package*.json bun.lock* ./
 RUN bun install
 COPY --chown=bun:bun . .
 
-CMD ["sleep", "infinity"]
+CMD ["bun", "run", "handle-messages"]

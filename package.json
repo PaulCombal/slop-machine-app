@@ -30,6 +30,7 @@
 		"reupload-yt": "bun run scripts/reuploadToYt.ts",
 		"rerun-tts": "bun run scripts/rerunTts.ts",
 		"rerender-video": "bun run scripts/rerenderVideo.ts",
-		"benchmark-models": "bun run scripts/benchmarkModels.ts"
+		"benchmark-models": "bun run scripts/benchmarkModels.ts",
+		"handle-messages": "bun run scripts/messageHandler.ts"
 	}
 }

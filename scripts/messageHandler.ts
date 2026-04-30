@@ -1,18 +1,18 @@
-import {generateScriptOnTopicForGroup} from "./steps/generate_script.mts";
-import {scriptSentencesToSpeechForGroup} from "./steps/tts/tts.ts";
-import downloadIllustrations from "./steps/download_illustrations.mts";
+import {generateScriptOnTopicForGroup} from "../steps/generate_script.mts";
+import {scriptSentencesToSpeechForGroup} from "../steps/tts/tts.ts";
+import downloadIllustrations from "../steps/download_illustrations.mts";
 import {
   compileAndSaveVideoConfig,
   createOuptutFolder,
   ensureDevelopmentAssets,
-} from "./utils/utils.mts";
-import {pickAndDownloadSatisfyingVideo} from "./steps/download_satisfying.mts";
-import {generateTopic} from "./steps/generate_topic.mts";
-import {getPersonaGroup} from "./persona_group.mts";
-import {getPersona} from "./personae.mts";
-import {getAuthenticatedClient, uploadShort} from "./utils/google.mts";
+} from "../utils/utils.mts";
+import {pickAndDownloadSatisfyingVideo} from "../steps/download_satisfying.mts";
+import {generateTopic} from "../steps/generate_topic.mts";
+import {getPersonaGroup} from "../persona_group.mts";
+import {getPersona} from "../personae.mts";
+import {getAuthenticatedClient, uploadShort} from "../utils/google.mts";
 import {Job, Worker} from "bullmq";
-import type {OutputConfig} from "./types/app";
+import type {OutputConfig} from "../types/app";
 
 async function prepareAllVideoAssets(personaGroupName: string, personaCarryingConversation: string) {
   const seed = Math.random();
@@ -49,7 +49,7 @@ async function prepareAllVideoAssets(personaGroupName: string, personaCarryingCo
 }
 
 console.log('== Creating main app worker')
-new Worker('assets-pipeline', async (job: Job<{personaGroupName: string, carryingPersona: string}>) => {
+const worker = new Worker('assets-pipeline', async (job: Job<{personaGroupName: string, carryingPersona: string}>) => {
   if (job.name === 'generate-assets') {
     await ensureDevelopmentAssets();
     const { personaGroupName, carryingPersona } = job.data;
@@ -79,4 +79,16 @@ new Worker('assets-pipeline', async (job: Job<{personaGroupName: string, carryin
   throw new Error('Unknown job: ' + job.name);
 }, {
   connection: { host: process.env.QUEUE_HOST || 'valkey', port: 6379 }
+});
+
+worker.on('completed', (job) => {
+  console.log(`✅ Job ${job.id} completed!`);
+});
+
+worker.on('failed', (job, err) => {
+  console.error(`❌ Job ${job?.id} failed with error: ${err.message}`);
+});
+
+worker.on('error', err => {
+  console.error('Worker connection error:', err);
 });
