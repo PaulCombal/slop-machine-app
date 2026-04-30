@@ -82,7 +82,7 @@ export async function sendRenderMessage(
 	options: {fake?: boolean, showProgress?: boolean} = {},
 ) {
 	return await renderQueue.add(
-		"remotion-render",
+		"render-video",
 		{
 			renderId: renderId,
 			fake: !!options.fake,
