@@ -13,6 +13,7 @@ import {getPersona} from "../personae.mts";
 import {getAuthenticatedClient, uploadShort} from "../utils/google.mts";
 import {Job, Worker} from "bullmq";
 import type {OutputConfig} from "../types/app";
+import {cleanS3} from "../utils/cleanS3.ts";
 
 async function prepareAllVideoAssets(personaGroupName: string, personaCarryingConversation: string) {
   const seed = Math.random();
@@ -67,13 +68,28 @@ const worker = new Worker('assets-pipeline', async (job: Job<{personaGroupName: 
     const configFile = Bun.s3.file(`output/${renderId}/config.json`);
     const config: OutputConfig = await configFile.json();
     const googleCredentials = await getAuthenticatedClient(config.personae.channelId);
-    await uploadShort(
-      config.topic.videoMetadata,
+    const uploadResult = await uploadShort(
+      config.topic,
       googleCredentials,
       "output/" + renderId + "/render.mp4",
     );
 
-    return;
+    if (!uploadResult) {
+      throw new Error('Upload result is empty')
+    }
+
+    console.log(`✅ Upload Successful! ID: ${uploadResult.id}`);
+    console.log(`Watch URL: https://youtube.com/shorts/${uploadResult.id}`);
+    await job.log(`Watch URL: https://youtube.com/shorts/${uploadResult.id}`);
+
+    return {
+      youtubeVideoId: uploadResult.id
+    };
+  }
+
+  if (job.name === 'clean-s3') {
+    await cleanS3();
+    console.log("S3 Cleanup complete.");
   }
 
   throw new Error('Unknown job: ' + job.name);

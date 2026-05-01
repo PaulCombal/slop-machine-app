@@ -2,7 +2,7 @@ import {type Credentials} from "google-auth-library";
 import {OAuth2Client} from "googleapis-common";
 import {createServer} from "http";
 import {google} from "googleapis";
-import type {VideoMetadata} from "../steps/generate_topic.mts";
+import type {FullTopicContext, VideoMetadata} from "../steps/generate_topic.mts";
 import {Readable} from "node:stream";
 import type {OutputConfig} from "../types/app";
 
@@ -101,7 +101,7 @@ export async function getAuthenticatedClient(channelId: string): Promise<OAuth2C
 
 // 2. Focused Execution Function
 export async function uploadShort(
-  meta: VideoMetadata,
+  fullTopicContext: FullTopicContext,
   auth: OAuth2Client,
   videoPath: string,
 ) {
@@ -109,6 +109,12 @@ export async function uploadShort(
     console.log("Skipping upload to YT in debug mode");
     return null;
   }
+
+  if (!fullTopicContext.category) {
+    throw new Error('Category not set before youtube upload');
+  }
+
+  const meta = fullTopicContext.videoMetadata;
 
   const rawTitle = meta.title.split(" ").filter(w => w.toLowerCase() !== "#shorts").join(" ");
   const cleanTags = meta.hashtags.filter(t => t.toLowerCase() !== "#shorts").join(" ");
@@ -142,7 +148,7 @@ export async function uploadShort(
       snippet: {
         title,
         description: meta.description,
-        categoryId: "25", // TODO make flexible
+        categoryId: fullTopicContext.category,
       },
       status: {
         privacyStatus: process.env.UPLOAD_VISIBILITY || "public",
@@ -154,8 +160,6 @@ export async function uploadShort(
     },
   });
 
-  console.log(`✅ Upload Successful! ID: ${response.data.id}`);
-  console.log(`Watch URL: https://youtube.com/shorts/${response.data.id}`);
   return response.data;
 }
 
@@ -167,6 +171,6 @@ export async function reuploadShort(renderId: string, channelId: string) {
 
   const googleCredentials = await getAuthenticatedClient(channelId);
   const config: OutputConfig = await Bun.s3.file('output/' + renderId + '/config.json').json();
-  const metadata = config.topic.videoMetadata;
+  const metadata = config.topic;
   return uploadShort(metadata, googleCredentials, 'output/' + renderId + '/render.mp4')
 }
