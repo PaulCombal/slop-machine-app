@@ -1,62 +1,32 @@
-import {generateScriptOnTopicForGroup} from "../steps/generate_script.mts";
-import {scriptSentencesToSpeechForGroup} from "../steps/tts/tts.ts";
-import downloadIllustrations from "../steps/download_illustrations.mts";
-import {
-  compileAndSaveVideoConfig,
-  createOuptutFolder,
-  ensureDevelopmentAssets,
-} from "../utils/utils.mts";
-import {pickAndDownloadSatisfyingVideo} from "../steps/download_satisfying.mts";
-import {generateTopic} from "../steps/generate_topic.mts";
-import {getPersonaGroup} from "../persona_group.mts";
-import {getPersona} from "../personae.mts";
+import {ensureDevelopmentAssets} from "../utils/utils.mts";
 import {getAuthenticatedClient, uploadShort} from "../utils/google.mts";
 import {Job, Worker} from "bullmq";
 import type {OutputConfig} from "../types/app";
 import {cleanS3} from "../utils/cleanS3.ts";
+import {prepareAllVideoAssets} from "../utils/prepareAllVideoAssets.ts";
+import {assetsQueue} from "../clients/queues.mts";
+import {queueVideoPipeline} from "../utils/queueVideoPipeline.ts";
 
-async function prepareAllVideoAssets(personaGroupName: string, personaCarryingConversation: string) {
-  const seed = Math.random();
-  const personaGroup = getPersonaGroup(personaGroupName);
-  const carryingPersona = getPersona(personaCarryingConversation);
-
-  console.log("== Generating topic");
-  const topic = await generateTopic(carryingPersona);
-  console.log('= Topic: ', topic.topic);
-
-  console.log("== Generating script");
-  const sentences = await generateScriptOnTopicForGroup(personaGroup, topic);
-  const renderData = await createOuptutFolder();
-
-  console.log(`== Downloading illustrations (${sentences.length} total)`);
-  console.log("== Downloading satisfying video");
-  console.log("== TTS processing");
-
-  await Promise.all([
-    downloadIllustrations(sentences, renderData.folder),
-    pickAndDownloadSatisfyingVideo(seed, renderData.folder, personaGroup.satisfyingVideoCategory),
-    scriptSentencesToSpeechForGroup(renderData.folder, sentences, personaGroup),
-  ]);
-
-  await compileAndSaveVideoConfig(
-    seed,
-    renderData.folder,
-    personaGroup,
-    sentences,
-    topic,
-  );
-
-  return renderData;
-}
+console.log('== Setting up repeatable tasks')
+await setupS3CleaningScheduler();
+await setupDailyTechNewsScheduler();
 
 console.log('== Creating main app worker')
-const worker = new Worker('assets-pipeline', async (job: Job<{personaGroupName: string, carryingPersona: string}>) => {
+const worker = new Worker('assets-pipeline', async (job: Job<{
+  personaGroupName: string,
+  carryingPersona: string
+}>) => {
+  if (job.name === 'trigger-video-flow') {
+    await queueVideoPipeline(job.data.personaGroupName, job.data.carryingPersona, true);
+    return {...job.data};
+  }
+
   if (job.name === 'generate-assets') {
     await ensureDevelopmentAssets();
-    const { personaGroupName, carryingPersona } = job.data;
+    const {personaGroupName, carryingPersona} = job.data;
     const renderData = await prepareAllVideoAssets(personaGroupName, carryingPersona);
 
-    return { renderId: renderData.renderId, fake: false, showProgress: false };
+    return {renderId: renderData.renderId, fake: false, showProgress: false};
   }
 
   if (job.name === 'upload-to-youtube') {
@@ -90,11 +60,12 @@ const worker = new Worker('assets-pipeline', async (job: Job<{personaGroupName: 
   if (job.name === 'clean-s3') {
     await cleanS3();
     console.log("S3 Cleanup complete.");
+    return;
   }
 
   throw new Error('Unknown job: ' + job.name);
 }, {
-  connection: { host: process.env.QUEUE_HOST || 'valkey', port: 6379 }
+  connection: {host: process.env.QUEUE_HOST || 'valkey', port: 6379}
 });
 
 worker.on('completed', (job) => {
@@ -108,3 +79,38 @@ worker.on('failed', (job, err) => {
 worker.on('error', err => {
   console.error('Worker connection error:', err);
 });
+
+async function setupS3CleaningScheduler() {
+  const SCHEDULER_ID = 'clean-s3-scheduler';
+
+  await assetsQueue.upsertJobScheduler(
+    SCHEDULER_ID,
+    {
+      pattern: '0 0 * * *',
+    },
+    {
+      name: 'clean-s3',
+      data: { reason: 'scheduled_cleanup' },
+    }
+  );
+
+  console.log(`📅 Job Scheduler "${SCHEDULER_ID}" is active.`);
+}
+
+async function setupDailyTechNewsScheduler() {
+  const SCHEDULER_ID = 'daily-technews-scheduler';
+
+  await assetsQueue.upsertJobScheduler(
+    SCHEDULER_ID,
+    {
+      pattern: '30 23 * * *',
+    },
+    {
+      name: 'trigger-video-flow',
+      data: {
+        personaGroupName: 'techNormal',
+        carryingPersona: 'techguy'
+      },
+    }
+  );
+}

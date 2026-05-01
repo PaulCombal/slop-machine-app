@@ -1,4 +1,4 @@
-import {flowProducer} from "./clients/queues.mts";
+import {queueVideoPipeline} from "./utils/queueVideoPipeline.ts";
 
 const personaGroupName = process.argv[2] || process.env.DEFAULT_PERSONA_GROUP;
 if (!personaGroupName) {
@@ -12,24 +12,4 @@ if (!carryingPersona) {
   throw new Error('Missing carryingPersona');
 }
 
-async function queueVideoGeneration(personaGroupName: string, carryingPersona: string) {
-  return await flowProducer.add({
-    name: 'upload-to-youtube',
-    queueName: 'assets-pipeline',
-    children: [
-      {
-        name: 'render-video',
-        queueName: 'render-pipeline',
-        children: [
-          {
-            name: 'generate-assets',
-            queueName: 'assets-pipeline',
-            data: { personaGroupName, carryingPersona }
-          }
-        ]
-      }
-    ]
-  });
-}
-
-const jobNode = await queueVideoGeneration(personaGroupName, carryingPersona);
+await queueVideoPipeline(personaGroupName, carryingPersona, false);
