@@ -460,7 +460,7 @@ ${topic.latestNews?.length ? "Dernières actus sur ce sujet : " + topic.latestNe
 		newsTopics: ['science_technology'],
 		ytCategoryCode: '28',
 		promptPersonality:
-			"I am a tech enthusiast in my late 20s from the USA. I like discussing about and reviewing the latest tech products, trends, and gadgets.",
+			"I am a male tech enthusiast in my late 20s from the USA. I like discussing about and reviewing the latest tech products, trends, and gadgets. As hobbies, I like sports, I'm generally a charming good looking man.",
 		promptVideoMetaGivenNews(newsItem: SummarizedNewsArticle) {
 			return `### Role
 You are a viral content strategist specializing in the 2026 "Tech videos" economy. Your goal is to generate high-engagement metadata for a PNGTuber’s YouTube Short.
@@ -536,7 +536,7 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
    - Conflict: If multiple characters are participating, engage them all with different opinions
    - Vibe: Prioritize character voice and emotion over dry facts.`;
 		},
-		stances: ["talking"],
+		stances: ["talking", "thinking", "flexing"],
 	},
 	techgirl: {
 		id: "techgirl",
@@ -636,7 +636,7 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
    - Conflict: If multiple characters are participating, engage them all with different opinions
    - Vibe: Prioritize character voice and emotion over dry facts.`;
 		},
-		stances: ["talking"],
+		stances: ["talking", "blushing", "thinking"],
 	}
 };
 
