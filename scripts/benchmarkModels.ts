@@ -4,7 +4,7 @@ import {generateScriptOnTopicForGroup} from "../steps/generate_script.mts";
 import {getPersonaGroup} from "../persona_group.mts";
 import type {FullTopicContext} from "../steps/generate_topic.mts";
 
-const personaGroup = getPersonaGroup('peterBffRazmo');
+const personaGroup = getPersonaGroup('peterLoisPolitics');
 const models = ['gemini', 'mistral'];
 // const models = ['gemini'];
 // const models = ['mistral'];

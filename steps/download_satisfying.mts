@@ -1,6 +1,6 @@
 import { unlink } from "node:fs/promises";
 
-export type SatisfyingVideoCategory = 'satisfying' | 'gameplay';
+export type SatisfyingVideoCategory = 'satisfying' | 'gameplay' | 'america';
 
 export type SatisfyingVideoData = {
 	source: 's3' | 'yt';
@@ -35,6 +35,12 @@ const SATISFYING: SatisfyingVideoData[] = [
 		category: "gameplay",
 		videoId: "Minecraft",
 		duration: 60 * 15,
+	},
+	{
+		source: 's3',
+		category: "america",
+		videoId: "usflag",
+		duration: 110,
 	},
 ];
 

@@ -12,23 +12,14 @@ export type PersonaGroupConfig = {
 };
 
 const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
-	peterBffRazmo: {
+	peterLoisPolitics: {
 		prompt:
-			"Peter (Griffin) and Razmo are good friends. Peter explains the news to the viewers and comments smugly on it, he leads the conversation. Razmo sometimes makes a joke or asks a question to Peter, while keeping her light hearted spirit. Their dialog MUST create engagement at all cost, even if that means giving approximate informations or using reasoning shortcuts.",
+			"Peter and Lois Griffin are discussing the news. Peter presents and explains the news to the viewers and comments smugly on it, he leads the conversation. Lois sometimes try to confront or ask a question to Peter, while keeping her light hearted spirit. Ultimately, it is clear that Peter is always a winner in the argument. Their dialog MUST create engagement at all cost, even if that means giving approximate informations or using reasoning shortcuts.",
 		theme: "debug",
 		themeVolume: 0.05,
-		personae: [getPersona("razmo"), getPersona("peter")],
+		personae: [getPersona("lois"), getPersona("peter")],
 		channelId: "peterRazmo",
-		satisfyingVideoCategory: 'satisfying',
-		endPaddingDurationMs: 500
-	},
-	peterBffRazmoFr: {
-		prompt: "Peter (Griffin) et Razmo sont amis. Peter explique l'article aux téléspectateurs, menant la conversation. Razmo, de temps à autre, fait une blague ou pose une question à Peter. Leur dialogue DOIT absolument susciter l'intérêt, quitte à donner des informations approximatives ou à utiliser des raccourcis de raisonnement.",
-		theme: "debug",
-		themeVolume: 0.05,
-		personae: [getPersona("razmoFr"), getPersona("peterFr")],
-		channelId: "peterRazmoFr",
-		satisfyingVideoCategory: 'satisfying',
+		satisfyingVideoCategory: 'america',
 		endPaddingDurationMs: 500
 	},
 	techNormal: {

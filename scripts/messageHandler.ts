@@ -9,7 +9,8 @@ import {queueVideoPipeline} from "../utils/queueVideoPipeline.ts";
 
 console.log('== Setting up repeatable tasks')
 await setupS3CleaningScheduler();
-await setupDailyTechNewsScheduler();
+await setupVideoPipelineScheduler('daily-technews-scheduler', '30 23 * * *', 'techNormal', 'techguy');
+await setupVideoPipelineScheduler('daily-peterlois-scheduler', '30 22 * * *', 'peterLoisPolitics', 'peter');
 
 console.log('== Creating main app worker')
 const worker = new Worker('assets-pipeline', async (job: Job<{
@@ -17,7 +18,7 @@ const worker = new Worker('assets-pipeline', async (job: Job<{
   carryingPersona: string
 }>) => {
   if (job.name === 'trigger-video-flow') {
-    await queueVideoPipeline(job.data.personaGroupName, job.data.carryingPersona, true);
+    await queueVideoPipeline(job.data.personaGroupName, job.data.carryingPersona, {automated: true});
     return {...job.data};
   }
 
@@ -97,19 +98,17 @@ async function setupS3CleaningScheduler() {
   console.log(`📅 Job Scheduler "${SCHEDULER_ID}" is active.`);
 }
 
-async function setupDailyTechNewsScheduler() {
-  const SCHEDULER_ID = 'daily-technews-scheduler';
-
+async function setupVideoPipelineScheduler(schedulerId: string, cronPattern: string, personaGroupName: string, carryingPersonaName: string) {
   await assetsQueue.upsertJobScheduler(
-    SCHEDULER_ID,
+    schedulerId,
     {
-      pattern: '30 23 * * *',
+      pattern: cronPattern,
     },
     {
       name: 'trigger-video-flow',
       data: {
-        personaGroupName: 'techNormal',
-        carryingPersona: 'techguy'
+        personaGroupName,
+        carryingPersona: carryingPersonaName
       },
     }
   );
