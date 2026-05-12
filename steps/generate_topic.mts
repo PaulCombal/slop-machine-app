@@ -1,4 +1,4 @@
-import {parseAiJson, promptLlm, promptLlmObject} from "../utils/llm.mts";
+import {promptLlmObject} from "../utils/llm.mts";
 import type {PersonaConfig} from "../personae.mts";
 import {z} from "zod";
 import {CurrentsMetadata, type NewsArticle} from "./news/currents.ts";
@@ -83,11 +83,11 @@ async function generateVideoMetadataFromNews(
   persona: PersonaConfig,
 ): Promise<VideoMetadata> {
   const prompt = persona.promptVideoMetaGivenNews(newsArticle);
-  return promptLlmObject<VideoMetadata>(prompt, "hf", VideoMetadataSchema);
+  return promptLlmObject<VideoMetadata>(prompt, process.env.TOPIC_MODEL_ALIAS || "gemini", VideoMetadataSchema);
 }
 
 async function generateRandomTopic(persona: PersonaConfig): Promise<VideoMetadata> {
-  return await promptLlmObject<VideoMetadata>(persona.promptVideoMeta, "hf", VideoMetadataSchema);
+  return await promptLlmObject<VideoMetadata>(persona.promptVideoMeta, process.env.TOPIC_MODEL_ALIAS || "gemini", VideoMetadataSchema);
 }
 
 export async function generateTopic(

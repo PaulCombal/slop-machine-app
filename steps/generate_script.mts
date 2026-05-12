@@ -1,7 +1,8 @@
 import myPexelsClient from "../clients/pexels.mts";
 import type { ScriptSentence } from "../types/app";
 import type { PersonaConfig } from "../personae.mts";
-import { parseAiJson, promptLlm } from "../utils/llm.mts";
+import {promptLlmObject} from "../utils/llm.mts";
+import {z} from "zod";
 import type { FullTopicContext } from "./generate_topic.mts";
 import type { PersonaGroupConfig } from "../persona_group.mts";
 
@@ -146,7 +147,15 @@ export async function generateScriptOnTopic(
 		return dummy();
 	}
 
-	const text = await promptLlm(
+	const ScriptSentenceSchema = z.array(
+		z.object({
+			sentence: z.string(),
+			stance: z.enum(persona.stances as [string, ...string[]]),
+			illustration: z.string(),
+		})
+	);
+
+	const sentences = await promptLlmObject(
 		`${persona.promptScriptGuidelines(topic)}
 
 ### Output Format:
@@ -165,9 +174,8 @@ JSON Structure:
 ]
 `,
 		"gemini",
-	);
-
-	const sentences: ScriptSentence[] = parseAiJson(text);
+		ScriptSentenceSchema
+	) as ScriptSentence[];
 
 	for (const sentence of sentences) {
 		sentence.personaId = persona.id;
@@ -197,7 +205,17 @@ export async function generateScriptOnTopicForGroup(
 	);
 	const news = topic.latestNews.length ? 'Contextual news: \n' + topic.latestNews.map(newsItem => `Article title: ${newsItem.title}\nArticle description: ${newsItem.description}\nArticle summary:${newsItem.summary}`) : '';
 
-	const text = await promptLlm(
+	const validIds = personaGroup.personae.map(p => p.id) as [string, ...string[]];
+	const ScriptSchema = z.array(
+		z.object({
+			personaId: z.enum(validIds),
+			sentence: z.string(),
+			stance: z.string(),
+			illustration: z.string()
+		})
+	);
+
+	const sentences = await promptLlmObject(
 		`# ROLE
 You are a Scriptwriter for "PNGTuber" YouTube Shorts. You specialize in high-retention, fast-paced dialogue (snappy banter) between multiple characters.
 
@@ -232,9 +250,9 @@ Return ONLY a valid JSON array of objects. Do not include markdown formatting or
   }
 ]`,
 		modelAlias,
-	);
+		ScriptSchema
+	) as ScriptSentence[];
 
-	const sentences: ScriptSentence[] = parseAiJson(text);
 	await addIllustrationLink(sentences);
 	addPersonaPositionToSentences(sentences, personaGroup);
 	return sentences;

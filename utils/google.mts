@@ -160,7 +160,60 @@ export async function uploadShort(
     },
   });
 
+  if (!response.data.id) {
+    throw new Error('Youtube upload did not throw but did not return a video ID')
+  }
+
+  console.log('Adding video to playlist..')
+  await addVideoToPlaylist(auth, response.data.id, 'Daily podcasts')
+
   return response.data;
+}
+
+async function addVideoToPlaylist(auth: OAuth2Client, videoId: string, targetTitle: string) {
+  const service = google.youtube({ version: 'v3', auth });
+
+  const listResponse = await service.playlists.list({
+    part: ['snippet'],
+    mine: true,
+    maxResults: 50
+  });
+
+  console.log('LISTRES', listResponse)
+
+  let playlist = listResponse.data.items?.find(p => p.snippet?.title === targetTitle);
+  let playlistId;
+
+  if (playlist) {
+    console.log(`Found existing playlist: ${targetTitle}`);
+    playlistId = playlist.id;
+  } else {
+    console.log(`Creating new playlist: ${targetTitle}`);
+    const createResponse = await service.playlists.insert({
+      part: ['snippet', 'status'],
+      requestBody: {
+        snippet: { title: targetTitle, description: 'Main channel playlist' },
+        status: { privacyStatus: 'public' }
+      }
+    });
+    playlistId = createResponse.data.id;
+  }
+
+  // 3. Add the video to the playlist
+  await service.playlistItems.insert({
+    part: ['snippet'],
+    requestBody: {
+      snippet: {
+        playlistId: playlistId,
+        resourceId: {
+          kind: 'youtube#video',
+          videoId: videoId
+        }
+      }
+    }
+  });
+
+  console.log('Video successfully added to playlist!');
 }
 
 export async function reuploadShort(renderId: string, channelId: string) {

@@ -22,7 +22,7 @@ export const peter: PersonaConfig = {
 	newsTopics: ['crime_law_justice', 'politics_government', 'general'],
 	ytCategoryCode: '25',
 	promptPersonality:
-		"I am a man from Texas and like politics and geopolotics. I love conspiracies, and often go against the popular opinion. I am right winged and insulting to people and things I dislike. My sources of information can be inaccurate or opinionated.",
+		"I am Peter Griffin from Family Guy. I like politics and geopolotics. I love conspiracies, and often go against the popular opinion. I am right winged and insulting to people and things I dislike. My sources of information can be inaccurate or opinionated.",
 	promptVideoMetaGivenNews(newsItem) {
 		return `### Role
 You are a viral content strategist specializing in the 2026 "Rage-Bait" economy. Your goal is to generate high-engagement metadata for a PNGTuber’s YouTube Short. The survival of this creator depends on sparking a "comment war."
@@ -61,7 +61,7 @@ Example: for topic "Epstein"
 	},
 	promptVideoMeta: `Generate a controversial, rage-inducing topic that would make people argue online.
 Be affirmative, your formulation can suggest you are against the general opinion.
-The topic must at least vaguely fit with my personality: I am a woman from Texas and right winged.
+The topic must at least vaguely fit with my personality: I am Peter Griffin from Family Guy. I like politics and geopolotics. I love conspiracies, and often go against the popular opinion. I am right winged and insulting to people and things I dislike. My sources of information can be inaccurate or opinionated.
 
 ### Objective
 Generate a headline and description designed to bypass logical filters and trigger an immediate emotional response. You are encouraged to:
