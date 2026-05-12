@@ -3,9 +3,7 @@ import {google} from "@ai-sdk/google";
 import {huggingface} from "@ai-sdk/huggingface";
 import {mistral} from '@ai-sdk/mistral';
 import {z} from "zod";
-import {sleep} from "./utils.mts";
 
-// const GEMINI_MODEL = google("gemini-2.5-flash");
 const GEMINI_MODEL = google("gemini-flash-latest");
 const GLM_MODEL = huggingface("zai-org/GLM-5");
 const HF_MODEL = huggingface("katanemo/Arch-Router-1.5B");
@@ -79,35 +77,19 @@ export async function promptLlmObject<T>(
     throw new Error('Unknown model alias: ' + model);
   }
 
-  const maxRetries = 9;
-  const baseDelay = 1000; // 1 second
+  try {
+    const {output} = await generateText({
+      prompt,
+      model: modelObj,
+      output: Output.object({schema}),
+    });
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const {output} = await generateText({
-        prompt,
-        model: modelObj,
-        output: Output.object({schema}),
-      });
-
-      return output;
-    } catch (error) {
-      if (attempt === maxRetries) {
-        console.error('Final attempt failed. Throwing error.');
-        throw error;
-      }
-
-      const delay = baseDelay * Math.pow(2, attempt);
-
-      console.log(`Attempt ${attempt + 1} failed. Retrying in ${delay}ms...`);
-      console.log('Reason:', error.reason);
-      console.log(error)
-
-      await sleep(delay);
-    }
+    return output;
+  } catch (error) {
+    console.log("error in generateText", error)
   }
 
-  throw new Error('Logic error, this should never be reached')
+  throw new Error('PromptLlmObject failed')
 }
 
 // export function parseAiJson(rawString: string) {

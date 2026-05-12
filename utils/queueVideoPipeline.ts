@@ -1,4 +1,5 @@
 import {flowProducer} from "../clients/queues.mts";
+import type {FlowJob} from "bullmq";
 
 type VideoPipelineQueuingOption = {
   automated: boolean,
@@ -12,17 +13,24 @@ export async function queueVideoPipeline(personaGroupName: string, carryingPerso
     return null;
   }
 
-  const generateAssetsJob = {
+  const generateAssetsJob: FlowJob = {
     name: 'generate-assets',
     queueName: 'assets-pipeline',
-    data: { personaGroupName, carryingPersona }
+    data: { personaGroupName, carryingPersona },
+    opts: {
+      attempts: 10,
+      backoff: {
+        type: 'exponential',
+        delay: 1000
+      }
+    }
   };
 
   if (options.render === false) {
     return await flowProducer.add(generateAssetsJob);
   }
 
-  const renderVideoJob = {
+  const renderVideoJob: FlowJob = {
     name: 'render-video',
     queueName: 'render-pipeline',
     children: [generateAssetsJob]
