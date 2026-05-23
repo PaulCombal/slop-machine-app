@@ -9,7 +9,7 @@ import {queueVideoPipeline} from "../utils/queueVideoPipeline.ts";
 
 console.log('== Setting up repeatable tasks')
 await setupS3CleaningScheduler();
-await setupVideoPipelineScheduler('daily-technews-scheduler', '30 23 * * *', 'techNormal', 'techguy');
+await setupVideoPipelineScheduler('daily-technews-scheduler', '30 23 * * *', 'techV2', 'techguy');
 await setupVideoPipelineScheduler('daily-peterlois-scheduler', '30 22 * * *', 'peterLoisPolitics', 'peter');
 
 console.log('== Creating main app worker')

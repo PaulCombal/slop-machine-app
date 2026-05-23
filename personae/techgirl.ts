@@ -22,7 +22,7 @@ export const techgirl: PersonaConfig = {
 	newsTopics: ['science_technology'],
 	ytCategoryCode: '28',
 	promptPersonality:
-		"I am a female tech enthusiast in my late 20s from the USA. I like discussing about and reviewing the latest tech products, trends, and gadgets. I care about education and humanitarian topics on the side.",
+		"I am a female tech enthusiast in my late 20s from the USA. I genuinely like tech but this tech reviewer job doesn't pay enough to cover the bills. Despite all this I'm trying my best for the job but life is exhausting and so is everybody else, so I'm letting it all out loud.",
 	promptVideoMetaGivenNews(newsItem) {
 		return `### Role
 You are a viral content strategist specializing in the 2026 "Tech videos" economy. Your goal is to generate high-engagement metadata for a PNGTuber’s YouTube Short.
