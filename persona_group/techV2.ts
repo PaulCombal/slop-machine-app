@@ -8,5 +8,6 @@ export const techV2: PersonaGroupConfig = {
 	personae: [getPersona('techguy'), getPersona('techgirl')],
 	channelId: 'tech',
 	satisfyingVideoCategory: 'gameplay',
-	endPaddingDurationMs: 500
+	endPaddingDurationMs: 500,
+	platforms: ['yt', 'ig'],
 };

@@ -41,7 +41,7 @@ export async function queueVideoPipeline(personaGroupName: string, carryingPerso
   }
 
   return await flowProducer.add({
-    name: 'upload-to-youtube',
+    name: 'dispatch-uploads',
     queueName: 'assets-pipeline',
     children: [renderVideoJob]
   });

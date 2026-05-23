@@ -13,6 +13,10 @@ export const renderQueue = new Queue("render-pipeline", {
 	connection: connectionConfig,
 });
 
+export const postingQueue = new Queue("post-service-queue", {
+	connection: connectionConfig,
+});
+
 export const remotionRenderQueueEvents = new QueueEvents("render-pipeline", {
 	connection: connectionConfig,
 });

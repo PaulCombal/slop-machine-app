@@ -9,5 +9,6 @@ export const peterLoisPolitics: PersonaGroupConfig = {
 	personae: [getPersona("lois"), getPersona("peter")],
 	channelId: "peterRazmo",
 	satisfyingVideoCategory: 'america',
-	endPaddingDurationMs: 500
+	endPaddingDurationMs: 500,
+	platforms: ['yt', 'ig'],
 };

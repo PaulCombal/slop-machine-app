@@ -4,38 +4,89 @@ import {Job, Worker} from "bullmq";
 import type {OutputConfig} from "../types/app";
 import {cleanS3} from "../utils/cleanS3.ts";
 import {prepareAllVideoAssets} from "../utils/prepareAllVideoAssets.ts";
-import {assetsQueue} from "../clients/queues.mts";
+import {assetsQueue, postingQueue} from "../clients/queues.mts";
 import {queueVideoPipeline} from "../utils/queueVideoPipeline.ts";
+import type {UploadPlatform} from "../persona_group.mts";
 
 console.log('== Setting up repeatable tasks')
 await setupS3CleaningScheduler();
 await setupVideoPipelineScheduler('daily-technews-scheduler', '30 23 * * *', 'techV2', 'techguy');
 await setupVideoPipelineScheduler('daily-peterlois-scheduler', '30 22 * * *', 'peterLoisPolitics', 'peter');
 
+type AssetsJobData = {
+  personaGroupName?: string;
+  carryingPersona?: string;
+  renderId?: string;
+};
+
 console.log('== Creating main app worker')
-const worker = new Worker('assets-pipeline', async (job: Job<{
-  personaGroupName: string,
-  carryingPersona: string
-}>) => {
+const worker = new Worker('assets-pipeline', async (job: Job<AssetsJobData>) => {
   if (job.name === 'trigger-video-flow') {
-    await queueVideoPipeline(job.data.personaGroupName, job.data.carryingPersona, {automated: true});
+    const {personaGroupName, carryingPersona} = job.data;
+    if (!personaGroupName || !carryingPersona) {
+      throw new Error('trigger-video-flow: missing personaGroupName or carryingPersona');
+    }
+    await queueVideoPipeline(personaGroupName, carryingPersona, {automated: true});
     return {...job.data};
   }
 
   if (job.name === 'generate-assets') {
     await ensureDevelopmentAssets();
     const {personaGroupName, carryingPersona} = job.data;
+    if (!personaGroupName || !carryingPersona) {
+      throw new Error('generate-assets: missing personaGroupName or carryingPersona');
+    }
     const renderData = await prepareAllVideoAssets(personaGroupName, carryingPersona);
 
     return {renderId: renderData.renderId, fake: false, showProgress: false};
   }
 
+  if (job.name === 'dispatch-uploads') {
+    const children = await job.getChildrenValues();
+    const values = Object.values(children)[0] as { renderId?: string } | undefined;
+    const renderId = values?.renderId;
+    if (!renderId) {
+      throw new Error('dispatch-uploads: missing renderId from child');
+    }
+
+    const configFile = Bun.s3.file(`output/${renderId}/config.json`);
+    const config: OutputConfig = await configFile.json();
+    const platforms: UploadPlatform[] = config.personae.platforms ?? ['yt'];
+
+    console.log(`== Dispatching uploads for ${renderId} to: ${platforms.join(', ') || '(none)'}`);
+
+    const enqueued: { platform: UploadPlatform; jobId?: string }[] = [];
+    for (const platform of platforms) {
+      if (platform === 'yt') {
+        const j = await assetsQueue.add('upload-to-youtube', { renderId }, {
+          attempts: 5,
+          backoff: { type: 'exponential', delay: 5000 },
+        });
+        enqueued.push({ platform, jobId: j.id });
+      } else if (platform === 'ig') {
+        const j = await postingQueue.add('ig-upload', { renderId }, {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 10000 },
+        });
+        enqueued.push({ platform, jobId: j.id });
+      } else if (platform === 'tt') {
+        console.warn(`⏭️  Platform "tt" not implemented yet — skipping`);
+      } else {
+        console.warn(`⏭️  Unknown platform "${platform}" — skipping`);
+      }
+    }
+
+    return { renderId, enqueued };
+  }
+
   if (job.name === 'upload-to-youtube') {
     console.log("== Uploading to Youtube");
 
-    const children = await job.getChildrenValues();
-    const values = Object.values(children)[0];
-    const renderId = values.renderId;
+    const renderId = job.data.renderId;
+    if (!renderId) {
+      throw new Error('upload-to-youtube: missing renderId');
+    }
+
     const configFile = Bun.s3.file(`output/${renderId}/config.json`);
     const config: OutputConfig = await configFile.json();
     const googleCredentials = await getAuthenticatedClient(config.personae.channelId);

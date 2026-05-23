@@ -4,6 +4,8 @@ import { peterLoisPolitics } from "./persona_group/peterLoisPolitics.ts";
 import { techNormal } from "./persona_group/techNormal.ts";
 import { techV2 } from "./persona_group/techV2.ts";
 
+export type UploadPlatform = "yt" | "ig" | "tt";
+
 export type PersonaGroupConfig = {
 	prompt: string;
 	theme: string;
@@ -12,6 +14,7 @@ export type PersonaGroupConfig = {
 	channelId: string;
 	satisfyingVideoCategory: SatisfyingVideoCategory;
 	endPaddingDurationMs: number;
+	platforms: UploadPlatform[];
 };
 
 const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {
@@ -27,4 +30,8 @@ export function getPersonaGroup(name: keyof typeof PERSONA_GROUPS) {
 	}
 
 	return personaGroup;
+}
+
+export function getKnownChannelIds(): string[] {
+	return [...new Set(Object.values(PERSONA_GROUPS).map(g => g.channelId))];
 }
