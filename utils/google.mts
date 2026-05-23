@@ -28,7 +28,11 @@ export async function grabOauthTokenLocally(): Promise<Credentials> {
 
   const authUrl = client.generateAuthUrl({
     access_type: "offline",
-    scope: ["https://www.googleapis.com/auth/youtube.upload"],
+    scope: [
+      "https://www.googleapis.com/auth/youtube.upload",
+      "https://www.googleapis.com/auth/youtube.force-ssl",
+      "https://www.googleapis.com/auth/yt-analytics.readonly",
+    ],
     prompt: "consent",
   });
 
@@ -167,6 +171,34 @@ export async function uploadShort(
   console.log('Adding video to playlist..')
   await addVideoToPlaylist(auth, response.data.id, 'Daily podcasts')
 
+  try {
+    await postSubscribeComment(auth, response.data.id, "Don't forget to subscribe for daily videos!");
+  } catch (e) {
+    console.warn('Failed to post subscribe comment (non-fatal):', e);
+  }
+
+  return response.data;
+}
+
+// YouTube Data API v3 has no public endpoint for pinning a comment — pinning
+// is only available via YouTube Studio UI / the internal app API. We post the
+// comment as the channel owner and rely on manual pinning if desired.
+async function postSubscribeComment(auth: OAuth2Client, videoId: string, text: string) {
+  const youtube = google.youtube({ version: 'v3', auth });
+
+  const response = await youtube.commentThreads.insert({
+    part: ['snippet'],
+    requestBody: {
+      snippet: {
+        videoId,
+        topLevelComment: {
+          snippet: { textOriginal: text },
+        },
+      },
+    },
+  });
+
+  console.log(`Posted comment on ${videoId}: ${response.data.id}`);
   return response.data;
 }
 
