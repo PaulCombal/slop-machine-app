@@ -55,6 +55,7 @@ const worker = new Worker('assets-pipeline', async (job: Job<AssetsJobData>) => 
 
     console.log(`== Dispatching uploads for ${renderId} to: ${platforms.join(', ') || '(none)'}`);
 
+    const channelId = config.personae.channelId;
     const enqueued: { platform: UploadPlatform; jobId?: string }[] = [];
     for (const platform of platforms) {
       if (platform === 'yt') {
@@ -64,7 +65,7 @@ const worker = new Worker('assets-pipeline', async (job: Job<AssetsJobData>) => 
         });
         enqueued.push({ platform, jobId: j.id });
       } else if (platform === 'ig') {
-        const j = await postingQueue.add('ig-upload', { renderId }, {
+        const j = await postingQueue.add('ig-upload', { renderId, channelId }, {
           attempts: 3,
           backoff: { type: 'exponential', delay: 10000 },
         });
