@@ -11,10 +11,10 @@ function dummy(): ScriptSentence[] {
 		{
 			sentence:
 				"With a soft and whispery American accent, I'm the ideal choice for creating ASMR content, meditative guides, or adding an intimate feel to your narrative projects.",
-			stance: "talking",
+			stance: "standing",
 			illustration: "Microphone",
 			wordsAlignment: [],
-			personaId: "debug",
+			personaId: "lois",
 			posXRange: 0.2,
 			posXOffset: 0.7,
 		},
@@ -27,6 +27,7 @@ function dummy(): ScriptSentence[] {
 			personaId: "peter",
 			posXRange: 0.2,
 			posXOffset: 0.3,
+			animations: {in: {preset: "shake"}},
 		},
 	];
 }

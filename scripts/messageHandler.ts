@@ -65,6 +65,11 @@ const worker = new Worker('assets-pipeline', async (job: Job<AssetsJobData>) => 
         });
         enqueued.push({ platform, jobId: j.id });
       } else if (platform === 'ig') {
+        if (process.env.DEBUG !== "false") {
+          console.log("⏭️  Skipping ig-upload enqueue in DEBUG mode");
+          enqueued.push({ platform });
+          continue;
+        }
         const j = await postingQueue.add('ig-upload', { renderId, channelId }, {
           attempts: 3,
           backoff: { type: 'exponential', delay: 10000 },
@@ -98,6 +103,9 @@ const worker = new Worker('assets-pipeline', async (job: Job<AssetsJobData>) => 
     );
 
     if (!uploadResult) {
+      if (process.env.DEBUG !== "false") {
+        return { youtubeVideoId: null };
+      }
       throw new Error('Upload result is empty')
     }
 
