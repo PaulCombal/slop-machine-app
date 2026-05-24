@@ -8,6 +8,22 @@ import { techguy } from "./personae/techguy.ts";
 import { techgirl } from "./personae/techgirl.ts";
 import { lois } from "./personae/lois.ts";
 
+export type AnimationSpec = {
+	preset: string;
+	params?: Record<string, number | string | boolean>;
+};
+
+export type AnimationSet = {
+	in?: AnimationSpec;
+	active?: AnimationSpec;
+	out?: AnimationSpec;
+};
+
+export type StanceConfig = {
+	name: string;
+	animations?: AnimationSet;
+};
+
 export type PersonaConfig = {
 	id: string;
 	size: number;
@@ -23,7 +39,7 @@ export type PersonaConfig = {
 	promptVideoMetaGivenNews: (newsItem: SummarizedNewsArticle) => string;
 	promptVideoMeta: string;
 	promptScriptGuidelines: (topic: FullTopicContext) => string;
-	stances: string[];
+	stances: StanceConfig[];
 	ttsProvider: 'elevenlabs' | 'kokoro' | 'qwen' | 'pocket';
 	elevenLabsVoiceId: string;
 	kokoroVoiceId: string;

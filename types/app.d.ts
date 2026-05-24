@@ -1,4 +1,4 @@
-import type { PersonaConfig } from "../personae.mts";
+import type { PersonaConfig, AnimationSet } from "../personae.mts";
 import type { FullTopicContext } from "../steps/generate_topic.mts";
 import type { PersonaGroupConfig } from "../persona_group.mts";
 
@@ -21,6 +21,7 @@ export type ScriptSentence = {
 	wordsAlignment: {start: number | null | undefined; end: number | undefined; text: string;}[];
 	posXRange: number;
 	posXOffset: number;
+	animations?: AnimationSet;
 };
 
 export type OutputConfig = {

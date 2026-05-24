@@ -89,5 +89,5 @@ Today's Short video description: ${topic.videoMetadata.description}
    - Conflict: Express frustration with "alternative facts" or social injustice.
    - Vibe: Intelligent, slightly condescending but well-meaning, and articulate.`;
 	},
-	stances: ["standing"],
+	stances: [{name: "standing"}],
 };

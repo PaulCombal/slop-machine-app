@@ -147,10 +147,11 @@ export async function generateScriptOnTopic(
 		return dummy();
 	}
 
+	const stanceNames = persona.stances.map((s) => s.name);
 	const ScriptSentenceSchema = z.array(
 		z.object({
 			sentence: z.string(),
-			stance: z.enum(persona.stances as [string, ...string[]]),
+			stance: z.enum(stanceNames as [string, ...string[]]),
 			illustration: z.string(),
 		})
 	);
@@ -161,7 +162,7 @@ export async function generateScriptOnTopic(
 ### Output Format:
 Return ONLY a raw JSON array of objects. Each object must contain:
 - "sentence": (string) The spoken line.
-- "stance": (string) Must be one of: ${persona.stances.join(", ")}.
+- "stance": (string) Must be one of: ${stanceNames.join(", ")}.
 - "illustration": (string) A 1-3 word search term for Pexels stock footage (focus on concrete visuals, e.g., "broken clock" instead of "wasted time").
 
 JSON Structure:
@@ -201,7 +202,7 @@ export async function generateScriptOnTopicForGroup(
 		(p) => `(ID: '${p.id}') ${p.personaName}: ${p.promptPersonality}\n`,
 	);
 	const personaeStances = personaGroup.personae.map(
-		(p) => `${p.personaName}: ${p.stances.join(", ")}\n`,
+		(p) => `${p.personaName}: ${p.stances.map((s) => s.name).join(", ")}\n`,
 	);
 	const news = topic.latestNews.length ? 'Contextual news: \n' + topic.latestNews.map(newsItem => `Article title: ${newsItem.title}\nArticle description: ${newsItem.description}\nArticle summary:${newsItem.summary}`) : '';
 

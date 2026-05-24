@@ -101,5 +101,5 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
    - Conflict: Express a strong emotional critique (anger, disbelief, or feigned outrage).
    - Vibe: Prioritize character voice and emotion over dry facts.`;
 	},
-	stances: ["talking"],
+	stances: [{name: "talking"}],
 };

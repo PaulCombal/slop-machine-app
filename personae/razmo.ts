@@ -90,14 +90,14 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
    - Vibe: Prioritize character voice and emotion over dry facts.`;
 	},
 	stances: [
-		"cracking_up",
-		"excited",
-		"mastermind",
-		"mischievous",
-		"shocked",
-		"starstruck",
-		"stupid",
-		"talking",
-		"thinking",
+		{name: "cracking_up"},
+		{name: "excited"},
+		{name: "mastermind"},
+		{name: "mischievous"},
+		{name: "shocked"},
+		{name: "starstruck"},
+		{name: "stupid"},
+		{name: "talking"},
+		{name: "thinking"},
 	],
 };

@@ -101,5 +101,5 @@ ${topic.latestNews?.length ? "Dernières actualités sur le sujet : " + topic.la
    - Conflit : Exprime une critique émotionnelle forte (colère, incrédulité ou indignation feinte).
    - Ambiance : Priorise la voix du personnage et l'émotion plutôt que les faits bruts.`;
 	},
-	stances: ["talking"],
+	stances: [{name: "talking"}],
 };

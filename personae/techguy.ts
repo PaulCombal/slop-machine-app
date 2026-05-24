@@ -98,5 +98,10 @@ ${topic.latestNews?.length ? "The latest headlines on this topic: " + topic.late
    - Conflict: If multiple characters are participating, engage them all with different opinions
    - Vibe: Prioritize character voice and emotion over dry facts.`;
 	},
-	stances: ["talking", "thinking", "flexing", "taunting"],
+	stances: [
+		{name: "talking"},
+		{name: "thinking"},
+		{name: "flexing"},
+		{name: "taunting"},
+	],
 };

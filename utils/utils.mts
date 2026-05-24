@@ -37,7 +37,7 @@ export async function compileAndSaveVideoConfig(
 			throw new Error('persona not found in group')
 		}
 
-		if (!persona.stances.includes(sentence.stance)) {
+		if (!persona.stances.some((s) => s.name === sentence.stance)) {
 			throw new Error('Sentence makes use of an unknown stance')
 		}
 

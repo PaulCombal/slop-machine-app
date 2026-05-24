@@ -90,14 +90,14 @@ ${topic.latestNews?.length ? "Dernières actus sur ce sujet : " + topic.latestNe
    - Ambiance : Priorise la voix du personnage et ses blagues sur le temps/les horloges plutôt que les faits bruts.`;
 	},
 	stances: [
-		"cracking_up",
-		"excited",
-		"mastermind",
-		"mischievous",
-		"shocked",
-		"starstruck",
-		"stupid",
-		"talking",
-		"thinking",
+		{name: "cracking_up"},
+		{name: "excited"},
+		{name: "mastermind"},
+		{name: "mischievous"},
+		{name: "shocked"},
+		{name: "starstruck"},
+		{name: "stupid"},
+		{name: "talking"},
+		{name: "thinking"},
 	],
 };
