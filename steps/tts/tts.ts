@@ -23,24 +23,38 @@ async function sentenceToSpeech(
   sentenceId: string,
   persona: PersonaConfig,
 ) {
-  if (process.env.DEBUG !== "false") {
-    return await dummy(folderName, sentence, sentenceId);
+  const audioKey = `${folderName}/sentence_${sentenceId}.ogg`;
+  const alignmentKey = `${folderName}/sentence_${sentenceId}_alignment.json`;
+
+  // Resume: if both the audio and its word alignment already exist, reuse them
+  // instead of re-paying the (often metered) TTS provider on a retry.
+  if ((await Bun.s3.exists(audioKey)) && (await Bun.s3.exists(alignmentKey))) {
+    console.log(`↩️  Skipping existing TTS for sentence ${sentenceId}`);
+    sentence.wordsAlignment = await Bun.s3.file(alignmentKey).json();
+    return;
   }
 
-  switch (persona.ttsProvider) {
-    case "elevenlabs":
-      await sentenceToSpeechElevenlabs(sentence, folderName, sentenceId, persona);
-      break;
-    case 'qwen':
-      await sentenceToSpeechQwen(sentence, folderName, sentenceId, persona);
-      break;
-    case 'pocket':
-      await sentenceToSpeechPocket(sentence, folderName, sentenceId, persona);
-      break;
-    default:
-      await sentenceToSpeechKokoro(sentence, folderName, sentenceId, persona);
-      break;
+  if (process.env.DEBUG !== "false") {
+    await dummy(folderName, sentence, sentenceId);
+  } else {
+    switch (persona.ttsProvider) {
+      case "elevenlabs":
+        await sentenceToSpeechElevenlabs(sentence, folderName, sentenceId, persona);
+        break;
+      case 'qwen':
+        await sentenceToSpeechQwen(sentence, folderName, sentenceId, persona);
+        break;
+      case 'pocket':
+        await sentenceToSpeechPocket(sentence, folderName, sentenceId, persona);
+        break;
+      default:
+        await sentenceToSpeechKokoro(sentence, folderName, sentenceId, persona);
+        break;
+    }
   }
+
+  // Persist the alignment so a future retry can resume without the provider.
+  await Bun.s3.write(alignmentKey, JSON.stringify(sentence.wordsAlignment));
 }
 
 export async function scriptSentencesToSpeech(

@@ -194,6 +194,12 @@ export async function pickAndDownloadSatisfyingVideo(
 	folder: string,
 	category: SatisfyingVideoCategory = "satisfying",
 ) {
+	const outputPath = `${folder}/satisfying.webm`;
+	if (await Bun.s3.exists(outputPath)) {
+		console.log(`↩️  Skipping existing satisfying video`);
+		return outputPath;
+	}
+
 	const segment = getSatisfyingVideoSegment(seed, category);
 	return await downloadSatisfyingVideo(segment, folder);
 }

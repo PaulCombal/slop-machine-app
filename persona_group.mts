@@ -1,20 +1,15 @@
 import type { PersonaConfig } from "./personae.mts";
-import type {SatisfyingVideoCategory} from "./steps/download_satisfying.mts";
+import type { DistributionConfig } from "./distribution.mts";
 import { peterLoisPolitics } from "./persona_group/peterLoisPolitics.ts";
 import { techNormal } from "./persona_group/techNormal.ts";
 import { techV2 } from "./persona_group/techV2.ts";
 
-export type UploadPlatform = "yt" | "ig" | "tt";
+// Re-exported for back-compat with existing importers.
+export type { UploadPlatform } from "./distribution.mts";
 
-export type PersonaGroupConfig = {
+export type PersonaGroupConfig = DistributionConfig & {
 	prompt: string;
-	theme: string;
-	themeVolume: number;
 	personae: PersonaConfig[];
-	channelId: string;
-	satisfyingVideoCategory: SatisfyingVideoCategory;
-	endPaddingDurationMs: number;
-	platforms: UploadPlatform[];
 };
 
 const PERSONA_GROUPS: Record<string, PersonaGroupConfig> = {

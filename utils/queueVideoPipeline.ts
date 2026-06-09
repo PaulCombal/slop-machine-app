@@ -1,4 +1,5 @@
 import {flowProducer} from "../clients/queues.mts";
+import {createOuptutFolder} from "./utils.mts";
 import type {FlowJob} from "bullmq";
 
 type VideoPipelineQueuingOption = {
@@ -13,10 +14,14 @@ export async function queueVideoPipeline(personaGroupName: string, carryingPerso
     return null;
   }
 
+  // Mint the renderId here, outside the retried job, so every retry of
+  // generate-assets reuses the same folder and resumes instead of restarting.
+  const {renderId} = await createOuptutFolder();
+
   const generateAssetsJob: FlowJob = {
     name: 'generate-assets',
     queueName: 'assets-pipeline',
-    data: { personaGroupName, carryingPersona },
+    data: { personaGroupName, carryingPersona, renderId },
     opts: {
       attempts: 10,
       backoff: {

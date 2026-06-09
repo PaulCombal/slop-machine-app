@@ -32,7 +32,7 @@ function dummy(): ScriptSentence[] {
 	];
 }
 
-async function addIllustrationLink(sentences: ScriptSentence[]) {
+export async function addIllustrationLink(sentences: ScriptSentence[]) {
 	const usedVideoIds = new Set<number>();
 
 	for (const sentence of sentences) {
@@ -92,7 +92,7 @@ function addPersonaPosition(
 	}
 }
 
-function addPersonaPositionToSentences(
+export function addPersonaPositionToSentences(
 	sentences: ScriptSentence[],
 	personaGroup: PersonaGroupConfig,
 ) {

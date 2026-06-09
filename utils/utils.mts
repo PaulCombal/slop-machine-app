@@ -18,8 +18,35 @@ export async function createOuptutFolder() {
 
 	return {
 		renderId,
-		folder: `output/${renderId}`
+		folder: outputFolder(renderId),
 	};
+}
+
+export function outputFolder(renderId: string): string {
+	return `output/${renderId}`;
+}
+
+/**
+ * Memoize the expensive, non-deterministic part of asset prep (seed + topic +
+ * script + illustration links) into <folder>/plan.json. On a BullMQ retry the
+ * same renderId yields the same folder, so we reload the plan instead of
+ * re-calling the LLM and re-searching Pexels. The actual media files are made
+ * idempotent separately via skip-if-exists in each download/TTS step.
+ */
+export async function loadOrCreatePlan<T>(
+	folder: string,
+	create: () => Promise<T>,
+): Promise<T> {
+	const key = `${folder}/plan.json`;
+
+	if (await Bun.s3.exists(key)) {
+		console.log(`↩️  Reusing existing plan (${key})`);
+		return (await Bun.s3.file(key).json()) as T;
+	}
+
+	const plan = await create();
+	await Bun.s3.write(key, JSON.stringify(plan, null, 2));
+	return plan;
 }
 
 export async function compileAndSaveVideoConfig(
