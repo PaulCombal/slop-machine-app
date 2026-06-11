@@ -1,7 +1,8 @@
 import type { PersonaConfig } from "../personae.mts";
 
 export const peterFr: PersonaConfig = {
-	id: "peter",
+	id: "peterFr",
+	assetId: "peter",
 	size: 1000,
 	posXRange: 0.6,
 	posXOffset: 0.2,

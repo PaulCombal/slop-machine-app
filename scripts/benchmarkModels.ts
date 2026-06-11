@@ -3,6 +3,12 @@ import {JinaReader} from "../steps/news/jina.ts";
 import {generateScriptOnTopicForGroup} from "../steps/generate_script.mts";
 import {getPersonaGroup} from "../persona_group.mts";
 import type {FullTopicContext} from "../steps/generate_topic.mts";
+import {ensureDatabaseReady} from "../db/bootstrap.ts";
+import {initRegistryCache} from "../repositories/registryCache.ts";
+
+// Definitions live in Postgres — load the cache before any getPersonaGroup call.
+const admin = await ensureDatabaseReady();
+await initRegistryCache(admin.id);
 
 const personaGroup = getPersonaGroup('peterLoisPolitics');
 const models = ['gemini', 'mistral'];

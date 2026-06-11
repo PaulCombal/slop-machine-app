@@ -5,11 +5,53 @@ import {google} from "googleapis";
 import type {FullTopicContext, VideoMetadata} from "../steps/generate_topic.mts";
 import {Readable} from "node:stream";
 import type {OutputConfig} from "../types/app";
+import {adminOwnerId} from "../db/users.ts";
+import {channelsRepo} from "../repositories/channelsRepo.ts";
 
 // 1. Replace these with your credentials from Google Cloud Console
 const CLIENT_ID = process.env.GOOGLE_OAUTH2_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_OAUTH2_CLIENT_SECRET;
 const REDIRECT_URI = process.env.GOOGLE_OAUTH2_LOCAL_REDIRECT_URL;
+
+/** YouTube scopes requested for every channel connection (CLI + web flows). */
+export const GOOGLE_OAUTH_SCOPES = [
+  "https://www.googleapis.com/auth/youtube.upload",
+  "https://www.googleapis.com/auth/youtube.force-ssl",
+  "https://www.googleapis.com/auth/yt-analytics.readonly",
+];
+
+/**
+ * Build the Google consent URL for the browser-based flow. `redirectUri` MUST
+ * exactly match an Authorized redirect URI on the OAuth client AND the one
+ * passed later to {@link exchangeCodeForTokens}. `prompt: "consent"` +
+ * `access_type: "offline"` guarantee a refresh_token is returned.
+ */
+export function buildWebAuthUrl(redirectUri: string, state: string): string {
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    throw new Error("Google OAuth client env vars are missing");
+  }
+  const client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET, redirectUri);
+  return client.generateAuthUrl({
+    access_type: "offline",
+    scope: GOOGLE_OAUTH_SCOPES,
+    prompt: "consent",
+    include_granted_scopes: true,
+    state,
+  });
+}
+
+/** Exchange an authorization code (from the web callback) for tokens. */
+export async function exchangeCodeForTokens(
+  redirectUri: string,
+  code: string,
+): Promise<Credentials> {
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    throw new Error("Google OAuth client env vars are missing");
+  }
+  const client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET, redirectUri);
+  const { tokens } = await client.getToken(code);
+  return tokens;
+}
 
 export async function grabOauthTokenLocally(): Promise<Credentials> {
   if (!CLIENT_ID) {
@@ -76,28 +118,23 @@ export async function getAuthenticatedClient(channelId: string): Promise<OAuth2C
   }
 
   const auth = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
-  const tokensFile = Bun.s3.file("credentials/google_tokens.json");
+  const ownerId = await adminOwnerId();
 
-  if (!(await tokensFile.exists())) {
-    throw new Error("Tokens not found. Run authorization first.");
-  }
-
-  const allTokens = await tokensFile.json();
-  if (!allTokens[channelId]) {
+  const tokens = await channelsRepo.getGoogleTokens(ownerId, channelId);
+  if (!tokens) {
     throw new Error('Channel credentials missing for ' + channelId);
   }
 
-  const tokens = allTokens[channelId];
   auth.setCredentials(tokens);
 
-  // Auto-save refreshed tokens back to the parent directory
+  // Persist refreshed tokens with an atomic single-row update (no shared-file
+  // read-modify-write race). The library only emits changed fields, so merge.
   auth.on("tokens", async (newTokens) => {
-    const current = await tokensFile.json();
-    await Bun.s3.write(
-      "credentials/google_tokens.json",
-      JSON.stringify({...current, [channelId]: newTokens}, null, 2),
-    );
-    console.log("🔄 Tokens synced to parent directory.");
+    await channelsRepo.setGoogleTokens(ownerId, channelId, {
+      ...tokens,
+      ...newTokens,
+    });
+    console.log(`🔄 Google tokens refreshed for channel "${channelId}".`);
   });
 
   return auth;

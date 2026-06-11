@@ -1,4 +1,6 @@
 import { assetsQueue } from "./clients/queues.mts";
+import { ensureDatabaseReady } from "./db/bootstrap.ts";
+import { initRegistryCache } from "./repositories/registryCache.ts";
 import { getShow } from "./show.mts";
 
 // Usage: bun run manualStartShow.ts <showId> [--render=false] [--upload=false]
@@ -14,6 +16,10 @@ const positionalArgs = args.filter((arg) => !arg.startsWith("--"));
 const showId = positionalArgs[0] || process.env.DEFAULT_SHOW;
 if (!showId) throw new Error("Missing showId");
 
+// Definitions live in Postgres — load the cache before resolving the show.
+const admin = await ensureDatabaseReady();
+await initRegistryCache(admin.id);
+
 getShow(showId); // validate early
 
 const render = !args.includes("--render=false");
@@ -24,3 +30,6 @@ console.log(`Options:`, { render, upload });
 
 await assetsQueue.add("show-tick", { showId, render, upload });
 console.log(`Enqueued show-tick for "${showId}"`);
+
+// The BullMQ queue connection keeps the event loop alive; exit explicitly.
+process.exit(0);

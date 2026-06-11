@@ -25,7 +25,7 @@ async function cloneVoice(
   persona: PersonaConfig,
 ) {
   if (typeof persona.pocketUseVoiceSample === 'boolean') {
-    persona.pocketUseVoiceSample = await Bun.s3.file('personae/' + persona.id + '/voiceSample.mp3').arrayBuffer();
+    persona.pocketUseVoiceSample = await Bun.s3.file('personae/' + (persona.assetId ?? persona.id) + '/voiceSample.mp3').arrayBuffer();
   }
 
   const formData = new FormData();

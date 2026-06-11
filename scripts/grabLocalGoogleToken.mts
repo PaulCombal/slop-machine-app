@@ -1,7 +1,14 @@
 import { grabOauthTokenLocally } from "../utils/google.mts";
 import { getKnownChannelIds } from "../persona_group.mts";
+import { ensureDatabaseReady } from "../db/bootstrap.ts";
+import { initRegistryCache } from "../repositories/registryCache.ts";
+import { channelsRepo } from "../repositories/channelsRepo.ts";
 
 const channelId = process.argv[2];
+
+// Definitions live in Postgres — load the cache before reading channel ids.
+const admin = await ensureDatabaseReady();
+await initRegistryCache(admin.id);
 const knownChannelIds = getKnownChannelIds();
 
 if (!channelId) {
@@ -18,10 +25,6 @@ if (!knownChannelIds.includes(channelId)) {
 const credentials = await grabOauthTokenLocally();
 console.log(credentials);
 
-const tokensFile = Bun.s3.file("credentials/google_tokens.json");
-const existing = (await tokensFile.exists()) ? await tokensFile.json() : {};
-await Bun.s3.write(
-  "credentials/google_tokens.json",
-  JSON.stringify({ ...existing, [channelId]: credentials }, null, 2),
-);
-console.log(`Tokens saved to S3 for channelId "${channelId}".`);
+await channelsRepo.setGoogleTokens(admin.id, channelId, credentials);
+console.log(`Tokens saved to DB for channelId "${channelId}".`);
+process.exit(0);

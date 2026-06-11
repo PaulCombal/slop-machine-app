@@ -19,8 +19,10 @@
 		"ai": "^6.0.168",
 		"bullmq": "^5.75.2",
 		"elevenlabs": "^1.59.0",
+		"eta": "^4.6.0",
 		"google-auth-library": "^10.6.2",
 		"googleapis": "^171.4.0",
+		"hono": "^4.12.25",
 		"pexels": "^1.4.0",
 		"zod": "^4.3.6"
 	},
@@ -32,6 +34,11 @@
 		"rerender-video": "bun run scripts/rerenderVideo.ts",
 		"benchmark-models": "bun run scripts/benchmarkModels.ts",
 		"handle-messages": "bun run scripts/messageHandler.ts",
-		"start-show": "bun run manualStartShow.ts"
+		"start-show": "bun run manualStartShow.ts",
+		"serve": "bun run server/index.tsx",
+		"migrate": "bun run db/migrate.ts",
+		"seed": "bun run db/seed.ts",
+		"import-credentials": "bun run db/importCredentials.ts",
+		"import-media": "bun run db/importMedia.ts"
 	}
 }

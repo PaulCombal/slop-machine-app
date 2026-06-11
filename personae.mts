@@ -7,6 +7,10 @@ import { razmoFr } from "./personae/razmoFr.ts";
 import { techguy } from "./personae/techguy.ts";
 import { techgirl } from "./personae/techgirl.ts";
 import { lois } from "./personae/lois.ts";
+import {
+	getPersonaFromCache,
+	listPersonaeFromCache,
+} from "./repositories/registryCache.ts";
 
 export type AnimationSpec = {
 	preset: string;
@@ -25,7 +29,14 @@ export type StanceConfig = {
 };
 
 export type PersonaConfig = {
+	/** Unique logical id (used in scripts, manifests, casting). */
 	id: string;
+	/**
+	 * Key for this persona's S3 assets (`personae/<assetId>/<stance>.png`,
+	 * `voiceSample.mp3`). Defaults to `id`. Lets variants (e.g. a French dub)
+	 * keep a distinct `id` while reusing another persona's artwork/voice.
+	 */
+	assetId?: string;
 	size: number;
 	posXRange: number;
 	posXOffset: number;
@@ -52,7 +63,8 @@ export type PersonaConfig = {
 	ytCategoryCode: string;
 };
 
-const PERSONAE: Record<string, PersonaConfig> = {
+/** Seed fixtures (imported once by db/seed.ts) — not the runtime source. */
+const SEED_PERSONAE: Record<string, PersonaConfig> = {
 	razmo,
 	peter,
 	peterFr,
@@ -62,11 +74,25 @@ const PERSONAE: Record<string, PersonaConfig> = {
 	lois,
 };
 
-export function getPersona(name: keyof typeof PERSONAE) {
-	const persona = PERSONAE[name];
+/** Static (code) persona, used by group/show seed fixtures and `db/seed.ts`. */
+export function getSeedPersona(name: keyof typeof SEED_PERSONAE): PersonaConfig {
+	const persona = SEED_PERSONAE[name];
 	if (!persona) {
-		throw new Error("NO PERSONA WITH THIS NAME: " + name);
+		throw new Error("NO SEED PERSONA WITH THIS NAME: " + name);
 	}
 
 	return persona;
+}
+
+export function listSeedPersonae(): PersonaConfig[] {
+	return Object.values(SEED_PERSONAE);
+}
+
+// Runtime accessors — DB-backed via the registry cache (init it first at boot).
+export function getPersona(name: string): PersonaConfig {
+	return getPersonaFromCache(name);
+}
+
+export function listPersonae(): PersonaConfig[] {
+	return listPersonaeFromCache();
 }

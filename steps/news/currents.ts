@@ -3,11 +3,14 @@ export interface CurrentsResponse<T> {
   [key: string]: any; // To handle 'categories', 'regions', or 'languages'
 }
 
-export type Category =
-  | 'general' | 'society' | 'science_technology' | 'politics_government'
-  | 'economy_business_finance' | 'arts_culture_entertainment' | 'lifestyle_leisure'
-  | 'human_interest' | 'sport' | 'crime_law_justice' | 'education'
-  | 'environment' | 'labour' | 'health' | 'automotive' | 'real_estate';
+export const NEWS_CATEGORIES = [
+  'general', 'society', 'science_technology', 'politics_government',
+  'economy_business_finance', 'arts_culture_entertainment', 'lifestyle_leisure',
+  'human_interest', 'sport', 'crime_law_justice', 'education',
+  'environment', 'labour', 'health', 'automotive', 'real_estate',
+] as const;
+
+export type Category = (typeof NEWS_CATEGORIES)[number];
 
 export interface NewsArticle {
   id: string;

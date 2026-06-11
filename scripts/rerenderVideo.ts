@@ -3,6 +3,8 @@ import {scriptSentencesToSpeechForGroup} from "../steps/tts/tts.ts";
 import {getPersonaGroup} from "../persona_group.mts";
 import {sendRenderMessage} from "../utils/utils.mts";
 import {remotionRenderQueueEvents, renderQueue} from "../clients/queues.mts";
+import {ensureDatabaseReady} from "../db/bootstrap.ts";
+import {initRegistryCache} from "../repositories/registryCache.ts";
 
 const renderId = process.argv[2];
 
@@ -10,6 +12,10 @@ if (!renderId) {
   console.log(process.argv);
   throw new Error('Missing renderId');
 }
+
+// Definitions live in Postgres — load the cache before any getPersonaGroup call.
+const admin = await ensureDatabaseReady();
+await initRegistryCache(admin.id);
 
 console.log('Rerendering video..')
 await rerenderVideo(renderId);

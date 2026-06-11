@@ -3,6 +3,10 @@ import type { PersonaGroupConfig } from "./persona_group.mts";
 import type { DistributionConfig } from "./distribution.mts";
 import { pickDistribution } from "./distribution.mts";
 import { secretStoryDebug } from "./show/secretStoryDebug.ts";
+import {
+	getShowFromCache,
+	listShowsFromCache,
+} from "./repositories/registryCache.ts";
 
 /**
  * How a long prose script is sliced into episodes.
@@ -35,17 +39,25 @@ export type ShowConfig = DistributionConfig & {
 	ytCategoryCode: string;
 };
 
-const SHOWS: Record<string, ShowConfig> = {
+/**
+ * Code-defined shows. Seed fixtures only (imported by `db/seed.ts`); runtime
+ * reads go through the DB-backed registry cache below.
+ */
+const SEED_SHOWS: Record<string, ShowConfig> = {
 	secretStoryDebug,
 };
 
-export function getShow(id: string): ShowConfig {
-	const show = SHOWS[id];
-	if (!show) {
-		throw new Error("NO SHOW WITH THIS ID: " + id);
-	}
+export function listSeedShows(): ShowConfig[] {
+	return Object.values(SEED_SHOWS);
+}
 
-	return show;
+// Runtime accessors — DB-backed via the registry cache.
+export function getShow(id: string): ShowConfig {
+	return getShowFromCache(id);
+}
+
+export function listShows(): ShowConfig[] {
+	return listShowsFromCache();
 }
 
 /**

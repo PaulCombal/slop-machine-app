@@ -1,7 +1,8 @@
 import type { PersonaConfig } from "../personae.mts";
 
 export const razmoFr: PersonaConfig = {
-	id: "razmo",
+	id: "razmoFr",
+	assetId: "razmo",
 	size: 1500,
 	posXRange: 0.6,
 	posXOffset: 0.2,

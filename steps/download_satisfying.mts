@@ -1,4 +1,6 @@
 import { unlink } from "node:fs/promises";
+import { adminOwnerId } from "../db/users.ts";
+import { mediaRepo } from "../repositories/media.ts";
 
 export type SatisfyingVideoCategory = 'satisfying' | 'gameplay' | 'america';
 
@@ -16,33 +18,6 @@ export type VideoSegment = {
 	start: string;
 	end: string;
 };
-
-const SATISFYING: SatisfyingVideoData[] = [
-	{
-		source: 'yt',
-		category: "satisfying",
-		videoId: "c0TODv-6G_A", // https://www.youtube.com/watch?v=c0TODv-6G_A
-		duration: 60 * 60,
-	},
-	{
-		source: 's3',
-		category: "gameplay",
-		videoId: "surfer",
-		duration: 60 * 3,
-	},
-	{
-		source: 's3',
-		category: "gameplay",
-		videoId: "Minecraft",
-		duration: 60 * 15,
-	},
-	{
-		source: 's3',
-		category: "america",
-		videoId: "usflag",
-		duration: 110,
-	},
-];
 
 async function downloadSatisfyingVideo(
 	segment: VideoSegment,
@@ -153,12 +128,31 @@ async function downloadS3SatisfyingVideo(
 	return outputPath;
 }
 
-export function getSatisfyingVideoSegment(
+/**
+ * Clips for a category, from the DB-managed library (uploaded via the control
+ * plane's "Satisfying videos" page). Clips always live in S3 at
+ * assets/satisfying/<videoId>.mp4.
+ */
+async function listClipsForCategory(
+	category: SatisfyingVideoCategory,
+): Promise<SatisfyingVideoData[]> {
+	const ownerId = await adminOwnerId();
+	return (await mediaRepo.list(ownerId, "satisfying"))
+		.filter((m) => m.category === category)
+		.map((m) => ({
+			source: "s3" as const,
+			category,
+			videoId: m.assetKey,
+			duration: m.durationSeconds ?? 45,
+		}));
+}
+
+export async function getSatisfyingVideoSegment(
 	seed: number,
 	category: SatisfyingVideoCategory,
-): VideoSegment {
+): Promise<VideoSegment> {
 	const CLIP_DURATION = 45;
-	const filtered = SATISFYING.filter((v) => v.category === category);
+	const filtered = await listClipsForCategory(category);
 
 	if (filtered.length === 0)
 		throw new Error("No satisfying videos for this category");
@@ -200,6 +194,6 @@ export async function pickAndDownloadSatisfyingVideo(
 		return outputPath;
 	}
 
-	const segment = getSatisfyingVideoSegment(seed, category);
+	const segment = await getSatisfyingVideoSegment(seed, category);
 	return await downloadSatisfyingVideo(segment, folder);
 }

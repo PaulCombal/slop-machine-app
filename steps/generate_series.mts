@@ -36,7 +36,11 @@ function dummy(show: ShowConfig): SeriesManifest {
 	const firstStance = (id: string) =>
 		show.roster.find((p) => p.id === id)!.stances[0]!.name;
 
-	const episodes: EpisodePlan[] = [1, 2].map((n, index) => ({
+	// Honour the configured episode count so DEBUG matches the show's split.
+	const count = show.split.type === "episodeCount" ? show.split.count : 2;
+	const episodes: EpisodePlan[] = Array.from({ length: count }, (_, index) => {
+		const n = index + 1;
+		return {
 		index,
 		title: `Secret Story — Day ${n}`,
 		description: `Debug episode ${n} of the secret story house.`,
@@ -57,7 +61,8 @@ function dummy(show: ShowConfig): SeriesManifest {
 				illustration: "whisper",
 			},
 		],
-	}));
+		};
+	});
 
 	return {
 		showId: show.id,
