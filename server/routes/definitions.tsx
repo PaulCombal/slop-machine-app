@@ -547,6 +547,34 @@ definitions.post("/shows/:id/breakdown", async (c) => {
 	return c.redirect(`/shows/${id}?breakdown=queued`);
 });
 
+// Render a single episode now (no upload).
+definitions.post("/shows/:id/episodes/:index/render", async (c) => {
+	const owner = await currentOwner(c);
+	const id = c.req.param("id");
+	if (!(await definitionsRepo.show(owner, id)))
+		return c.html(NotFound("show"), 404);
+	const idx = Number(c.req.param("index"));
+	const ep = (await loadManifest(id))?.episodes[idx];
+	if (!ep) return c.html(NotFound("episode"), 404);
+	await jobsRepo.triggerEpisodeRender(id, idx);
+	return c.redirect(`/shows/${id}?episode=${idx + 1}&action=render`);
+});
+
+// Publish a single already-rendered episode to the show's platforms.
+definitions.post("/shows/:id/episodes/:index/publish", async (c) => {
+	const owner = await currentOwner(c);
+	const id = c.req.param("id");
+	if (!(await definitionsRepo.show(owner, id)))
+		return c.html(NotFound("show"), 404);
+	const idx = Number(c.req.param("index"));
+	const ep = (await loadManifest(id))?.episodes[idx];
+	if (!ep) return c.html(NotFound("episode"), 404);
+	if (!ep.renderId)
+		return c.redirect(`/shows/${id}?episode=${idx + 1}&action=notrendered`);
+	await jobsRepo.triggerEpisodePublish(id, idx);
+	return c.redirect(`/shows/${id}?episode=${idx + 1}&action=publish`);
+});
+
 /** Review table of a generated manifest's episodes. */
 function Episodes({
 	showId,
@@ -564,7 +592,8 @@ function Episodes({
 					<th>cast</th>
 					<th>lines</th>
 					<th>status</th>
-					<th>render</th>
+					<th>renderId</th>
+						<th>actions</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -578,6 +607,25 @@ function Episodes({
 						<td>{e.sentences.length}</td>
 						<td>{e.status}</td>
 						<td>{e.renderId ? <code>{e.renderId}</code> : "—"}</td>
+						<td style="white-space:nowrap">
+							<form
+								method="post"
+								action={`/shows/${showId}/episodes/${e.index}/render`}
+								style="display:inline"
+							>
+								<button type="submit">render</button>
+							</form>{" "}
+							<form
+								method="post"
+								action={`/shows/${showId}/episodes/${e.index}/publish`}
+								style="display:inline"
+								onsubmit="return confirm('Publish this episode now?')"
+							>
+								<button type="submit" disabled={!e.renderId}>
+									publish
+								</button>
+							</form>
+						</td>
 					</tr>
 				))}
 			</tbody>
@@ -643,6 +691,16 @@ definitions.get("/shows/:id", async (c) => {
 	if (!s) return c.html(NotFound("show"), 404);
 	const manifest = await loadManifest(s.id);
 	const queued = c.req.query("breakdown") === "queued";
+	const action = c.req.query("action");
+	const epNo = c.req.query("episode");
+	const actionMsg =
+		action === "render"
+			? `✅ Episode ${epNo} queued for rendering — refresh to watch its status.`
+			: action === "publish"
+				? `✅ Episode ${epNo} queued for publishing.`
+				: action === "notrendered"
+					? `⚠️ Episode ${epNo} hasn't been rendered yet — render it first.`
+					: null;
 	return c.html(
 		<Layout title={`Show · ${s.id}`}>
 			<p>
@@ -654,6 +712,11 @@ definitions.get("/shows/:id", async (c) => {
 			{queued ? (
 				<p style="color:#2e7d32">
 					✅ Breakdown queued — refresh in a moment to review the episodes.
+				</p>
+			) : null}
+			{actionMsg ? (
+				<p style={action === "notrendered" ? "color:#c0392b" : "color:#2e7d32"}>
+					{actionMsg}
 				</p>
 			) : null}
 			<form
@@ -670,8 +733,9 @@ definitions.get("/shows/:id", async (c) => {
 				<>
 					<p style="opacity:.8">
 						{manifest.episodes.length} episode(s), generated{" "}
-						{manifest.createdAt}. Render them via a show tick on the{" "}
-						<a href="/runs">Runs</a> page or a schedule.
+						{manifest.createdAt}. Render an individual episode with its{" "}
+						<strong>render</strong> button below, drip them via a show tick on
+						the <a href="/runs">Runs</a> page, or schedule them.
 					</p>
 					<Episodes showId={s.id} episodes={manifest.episodes} />
 				</>

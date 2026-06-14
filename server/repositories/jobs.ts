@@ -40,6 +40,30 @@ export const jobsRepo = {
 		return String(job.id ?? "");
 	},
 
+	/** Render one episode now (no upload). */
+	async triggerEpisodeRender(
+		showId: string,
+		episodeIndex: number,
+	): Promise<string> {
+		const job = await assetsQueue.add("render-episode", {
+			showId,
+			episodeIndex,
+		});
+		return String(job.id ?? "");
+	},
+
+	/** Publish one already-rendered episode to the show's platforms. */
+	async triggerEpisodePublish(
+		showId: string,
+		episodeIndex: number,
+	): Promise<string> {
+		const job = await assetsQueue.add("publish-episode", {
+			showId,
+			episodeIndex,
+		});
+		return String(job.id ?? "");
+	},
+
 	async recent(limit = 25): Promise<JobDTO[]> {
 		// Pull a generous slice across states, then sort newest-first ourselves
 		// (per-state ordering from getJobs isn't a global chronological order).

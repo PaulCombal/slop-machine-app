@@ -143,10 +143,56 @@ async function handleGenerateEpisodeAssets(job: AssetsJob) {
   return {renderId: renderData.renderId, fake: false, showProgress: false};
 }
 
+// Render a single episode on demand (no upload). Mirrors a show-tick for one
+// chosen episode: mark it queued so the UI reflects it, then run the
+// render-only pipeline. The renderId is recorded on the manifest by
+// generate-episode-assets once it completes.
+async function handleRenderEpisode(job: AssetsJob) {
+  const {showId, episodeIndex} = job.data;
+  if (!showId || episodeIndex === undefined) {
+    throw new Error('render-episode: missing showId or episodeIndex');
+  }
+  const manifest = await loadManifest(showId);
+  const episode = manifest?.episodes[episodeIndex];
+  if (!manifest || !episode) {
+    throw new Error(`render-episode: no episode ${episodeIndex} for show "${showId}"`);
+  }
+  episode.status = 'queued';
+  await saveManifest(manifest);
+  await queueShowEpisodePipeline(showId, episodeIndex, {upload: false});
+  console.log(`📤 Queued render of episode ${episodeIndex + 1} of "${showId}"`);
+  return {showId, episode: episodeIndex};
+}
+
+// Publish an already-rendered episode: dispatch uploads for the renderId stored
+// on the manifest. Errors if the episode hasn't been rendered yet.
+async function handlePublishEpisode(job: AssetsJob) {
+  const {showId, episodeIndex} = job.data;
+  if (!showId || episodeIndex === undefined) {
+    throw new Error('publish-episode: missing showId or episodeIndex');
+  }
+  const manifest = await loadManifest(showId);
+  const episode = manifest?.episodes[episodeIndex];
+  if (!manifest || !episode) {
+    throw new Error(`publish-episode: no episode ${episodeIndex} for show "${showId}"`);
+  }
+  if (!episode.renderId) {
+    throw new Error(`publish-episode: episode ${episodeIndex} of "${showId}" not rendered yet`);
+  }
+  await assetsQueue.add('dispatch-uploads', {renderId: episode.renderId}, {
+    attempts: 3,
+    backoff: {type: 'exponential', delay: 5000},
+  });
+  console.log(`📤 Queued publish of episode ${episodeIndex + 1} of "${showId}" (${episode.renderId})`);
+  return {showId, episode: episodeIndex, renderId: episode.renderId};
+}
+
 async function handleDispatchUploads(job: AssetsJob) {
   const children = await job.getChildrenValues();
   const values = Object.values(children)[0] as { renderId?: string } | undefined;
-  const renderId = values?.renderId;
+  // renderId comes from the render-video child in the pipeline, or directly on
+  // the job when publishing an already-rendered episode (publish-episode).
+  const renderId = values?.renderId ?? job.data.renderId;
   if (!renderId) {
     throw new Error('dispatch-uploads: missing renderId from child');
   }
@@ -231,6 +277,8 @@ const HANDLERS: Record<string, JobHandler> = {
   'show-tick': handleShowTick,
   'show-breakdown': handleShowBreakdown,
   'generate-episode-assets': handleGenerateEpisodeAssets,
+  'render-episode': handleRenderEpisode,
+  'publish-episode': handlePublishEpisode,
   'dispatch-uploads': handleDispatchUploads,
   'upload-to-youtube': handleUploadToYoutube,
   'clean-s3': handleCleanS3,
