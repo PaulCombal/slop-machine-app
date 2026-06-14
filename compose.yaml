@@ -39,6 +39,7 @@ services:
     command: ["bun", "run", "serve"]
     environment:
       - DEBUG=${DEBUG}
+      - BULLBOARD_URL=${BULLBOARD_URL}
       - QUEUE_HOST=${QUEUE_HOST}
       - DATABASE_URL=${DATABASE_URL}
       - ADMIN_USER=${ADMIN_USER}

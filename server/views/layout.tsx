@@ -1,4 +1,5 @@
 import type { FC, PropsWithChildren } from "hono/jsx";
+import { config } from "../config.ts";
 import { FORM_CSS } from "./forms.tsx";
 
 const NAV = [
@@ -35,7 +36,7 @@ export const Layout: FC<PropsWithChildren<{ title: string }>> = ({
 				{NAV.map(([href, label]) => (
 					<a href={href}>{label}</a>
 				))}
-				<a href="http://localhost:8001" target="_blank" rel="noreferrer">
+				<a href={config.bullboardUrl} target="_blank" rel="noreferrer">
 					bullboard ↗
 				</a>
 				<form method="post" action="/logout" style="margin-left:auto">

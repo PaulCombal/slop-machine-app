@@ -21,4 +21,6 @@ export const config = {
 	queuePort: 6379,
 	/** Same DEBUG semantics as the rest of the app: real calls only when "false". */
 	debug: process.env.DEBUG !== "false",
+	/** Base URL of the bullboard dashboard, for deep-links from the UI. */
+	bullboardUrl: process.env.BULLBOARD_URL ?? "http://localhost:8001",
 };
