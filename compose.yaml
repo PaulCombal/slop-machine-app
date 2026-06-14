@@ -1,0 +1,61 @@
+# Production stack for the slop-machine-app repo: the BullMQ worker + the Hono
+# control plane (same image, two commands). Deployed by Komodo from this repo
+# (build context = repo root). Joins the external `videomachine` network to
+# reach postgres/valkey/garage published by the infra stack. Env is injected by
+# Komodo via --env-file (see komodo/sync.toml in the umbrella repo).
+services:
+  # BullMQ worker — the video-generation pipeline. Scale with replicas (jobs are
+  # pulled from Valkey, no load balancer needed). Image CMD is handle-messages.
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      - DEBUG=${DEBUG}
+      - QUEUE_HOST=${QUEUE_HOST}
+      - DATABASE_URL=${DATABASE_URL}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ENDPOINT=${AWS_ENDPOINT}
+      - AWS_REGION=${AWS_REGION}
+      - S3_BUCKET=${BUN_S3_BUCKET}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+      - GOOGLE_OAUTH2_CLIENT_ID=${GOOGLE_OAUTH2_CLIENT_ID}
+      - GOOGLE_OAUTH2_CLIENT_SECRET=${GOOGLE_OAUTH2_CLIENT_SECRET}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - PEXELS_API_KEY=${PEXELS_API_KEY}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - CURRENTS_API_KEY=${CURRENTS_API_KEY}
+      - JINA_API_KEY=${JINA_API_KEY}
+      - UPLOAD_VISIBILITY=${UPLOAD_VISIBILITY}
+      - DEFAULT_PERSONA_GROUP=${DEFAULT_PERSONA_GROUP}
+      - DEFAULT_CARRYING_PERSONA=${DEFAULT_CARRYING_PERSONA}
+    networks: [videomachine]
+
+  # Control plane (Hono web UI / API). Front with a reverse proxy for TLS.
+  api:
+    build: .
+    restart: unless-stopped
+    command: ["bun", "run", "serve"]
+    environment:
+      - DEBUG=${DEBUG}
+      - QUEUE_HOST=${QUEUE_HOST}
+      - DATABASE_URL=${DATABASE_URL}
+      - ADMIN_USER=${ADMIN_USER}
+      - ADMIN_PASS=${ADMIN_PASS}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - GOOGLE_OAUTH2_CLIENT_ID=${GOOGLE_OAUTH2_CLIENT_ID}
+      - GOOGLE_OAUTH2_CLIENT_SECRET=${GOOGLE_OAUTH2_CLIENT_SECRET}
+      - GOOGLE_OAUTH2_WEB_REDIRECT_URL=${GOOGLE_OAUTH2_WEB_REDIRECT_URL}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ENDPOINT=${AWS_ENDPOINT}
+      - AWS_REGION=${AWS_REGION}
+      - S3_BUCKET=${BUN_S3_BUCKET}
+    ports:
+      - "8002:8002"
+    networks: [videomachine]
+
+networks:
+  videomachine:
+    external: true
