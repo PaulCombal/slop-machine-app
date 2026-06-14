@@ -52,8 +52,10 @@ services:
       - AWS_ENDPOINT=${AWS_ENDPOINT}
       - AWS_REGION=${AWS_REGION}
       - S3_BUCKET=${BUN_S3_BUCKET}
+    # Bound to loopback only — public access is via the Caddy proxy (HTTPS).
+    # Caddy reaches this over the `videomachine` network, not the host port.
     ports:
-      - "8002:8002"
+      - "127.0.0.1:8002:8002"
     networks: [videomachine]
 
 networks:
