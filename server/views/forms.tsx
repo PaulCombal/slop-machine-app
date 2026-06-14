@@ -166,7 +166,7 @@ function CheckGroup({
 	);
 }
 
-/** Theme key as a combobox: free text + a datalist of saved themes. */
+/** Theme key as a dropdown of saved themes (plus a blank "no theme" option). */
 function ThemeField({
 	value,
 	errors,
@@ -176,17 +176,23 @@ function ThemeField({
 	errors: Errs;
 	themeKeys: string[];
 }) {
+	const cur = s(value.theme);
+	// Keep the current value selectable even if it's no longer a saved theme,
+	// so editing an old definition doesn't silently drop its theme.
+	const keys = cur && !themeKeys.includes(cur) ? [cur, ...themeKeys] : themeKeys;
 	return (
 		<label>
-			<span>theme (background music — pick a saved one or type a key)</span>
-			<input name="theme" value={s(value.theme)} list="theme-keys" />
-			{themeKeys.length ? (
-				<datalist id="theme-keys">
-					{themeKeys.map((k) => (
-						<option value={k} />
-					))}
-				</datalist>
-			) : null}
+			<span>theme (background music)</span>
+			<select name="theme">
+				<option value="" selected={cur === ""}>
+					— no theme —
+				</option>
+				{keys.map((k) => (
+					<option value={k} selected={k === cur}>
+						{k}
+					</option>
+				))}
+			</select>
 			<Err errors={errors} name="theme" />
 		</label>
 	);
