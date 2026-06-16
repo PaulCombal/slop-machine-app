@@ -1,7 +1,7 @@
 import type { Job, JobSchedulerJson } from "bullmq";
 import type { PersonaGroupConfig } from "../persona_group.mts";
 import type { PersonaConfig } from "../personae.mts";
-import type { ShowConfig, SplitStrategy } from "../show.mts";
+import type { ShowConfig, ShowStatus, SplitStrategy } from "../show.mts";
 
 /**
  * Serializable, per-owner views of the runtime configs. The mappers pick only
@@ -29,6 +29,7 @@ export type PersonaDTO = {
 	ytCategoryCode: string;
 	promptPersonality: string;
 	promptVideoMeta: string;
+	stanceDefaultPrompt: string;
 };
 
 export type GroupDTO = {
@@ -47,6 +48,7 @@ export type GroupDTO = {
 export type ShowDTO = {
 	owner: Owner;
 	id: string;
+	status: ShowStatus;
 	prompt: string;
 	prose: string;
 	split: SplitStrategy;
@@ -197,6 +199,7 @@ export function toPersonaDTO(p: PersonaConfig, owner: Owner): PersonaDTO {
 		ytCategoryCode: p.ytCategoryCode,
 		promptPersonality: p.promptPersonality,
 		promptVideoMeta: p.promptVideoMeta,
+		stanceDefaultPrompt: p.stanceDefaultPrompt ?? "",
 	};
 }
 
@@ -223,6 +226,7 @@ export function toShowDTO(s: ShowConfig, owner: Owner): ShowDTO {
 	return {
 		owner,
 		id: s.id,
+		status: s.status ?? "draft",
 		prompt: s.prompt ?? "",
 		prose: s.prose,
 		split: s.split,

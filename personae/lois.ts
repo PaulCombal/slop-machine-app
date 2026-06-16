@@ -7,6 +7,7 @@ export const lois: PersonaConfig = {
 	posXOffset: 0.2,
 	groupPosXRange: 0.2,
 	groupPosXOffset: 0.7,
+	mirrorable: false,
 	ttsProvider: 'pocket',
 	elevenLabsVoiceId: "cgSgspJ2msm6clMCkdW9",
 	kokoroVoiceId: "af_nicole",

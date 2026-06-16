@@ -36,14 +36,14 @@ export async function seedDefinitions(ownerId: string): Promise<void> {
 					user_id, persona_key, asset_id, persona_name, language, theme, theme_volume,
 					tts_provider, elevenlabs_voice_id, kokoro_voice_id, kokoro_language,
 					qwen_voice_id, pocket_voice_id, pocket_use_voice_sample,
-					size, pos_x_range, pos_x_offset, group_pos_x_range, group_pos_x_offset,
+					size, pos_x_range, pos_x_offset, group_pos_x_range, group_pos_x_offset, mirrorable,
 					news_region, news_topics, yt_category_code, prompt_personality, prompt_video_meta,
 					prompt_video_meta_given_news_tmpl, prompt_script_guidelines_tmpl, stances
 				) values (
 					${ownerId}, ${p.id}, ${p.assetId ?? null}, ${p.personaName}, ${p.language}, ${p.theme}, ${p.themeVolume},
 					${p.ttsProvider}, ${p.elevenLabsVoiceId}, ${p.kokoroVoiceId}, ${p.kokoroLanguage},
 					${p.qwenVoiceId}, ${p.pocketVoiceId}, ${Boolean(p.pocketUseVoiceSample)},
-					${p.size}, ${p.posXRange}, ${p.posXOffset}, ${p.groupPosXRange}, ${p.groupPosXOffset},
+					${p.size}, ${p.posXRange}, ${p.posXOffset}, ${p.groupPosXRange}, ${p.groupPosXOffset}, ${Boolean(p.mirrorable)},
 					${p.newsRegion}, ${pgArray(p.newsTopics.map(String))}::text[], ${p.ytCategoryCode}, ${p.promptPersonality}, ${p.promptVideoMeta},
 					${metaTmpl}, ${guideTmpl}, ${JSON.stringify(p.stances)}::jsonb
 				) returning id

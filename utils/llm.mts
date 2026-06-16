@@ -5,60 +5,12 @@ import {mistral} from '@ai-sdk/mistral';
 import {z} from "zod";
 
 const GEMINI_MODEL = google("gemini-flash-latest");
+const GEMINI25_MODEL = google("gemini-2.5-flash");
 const GLM_MODEL = huggingface("zai-org/GLM-5");
 const HF_MODEL = huggingface("katanemo/Arch-Router-1.5B");
 const MISTRAL_MODEL = mistral('mistral-large-latest');
 
-type ModelAlias = "gemini" | "glm" | "hf" | "mistral";
-
-// export async function promptLlm(
-//   prompt: string,
-//   model: ModelAlias | string,
-//   toolNames: ('googleSearch')[] = []
-// ): Promise<string> {
-//   const models: Record<string, typeof GEMINI_MODEL> = {
-//     gemini: GEMINI_MODEL,
-//     glm: GLM_MODEL,
-//     hf: HF_MODEL,
-//     mistral: MISTRAL_MODEL
-//   };
-//
-//   const modelObj = models[model];
-//   const tools: Record<string, any> = {};
-//
-//   if (!modelObj) {
-//     throw new Error('Unknown model alias: ' + model);
-//   }
-//
-//   if (toolNames.includes('googleSearch')) {
-//     tools.google_search = google.tools.googleSearch({});
-//   }
-//
-//   const maxRetries = 9;
-//   const baseDelay = 1000; // 1 second
-//
-//   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-//     try {
-//       const result = await generateText({prompt, model: modelObj, tools});
-//       return result.text;
-//     } catch (error) {
-//       if (attempt === maxRetries) {
-//         console.error('Final attempt failed. Throwing error.');
-//         throw error;
-//       }
-//
-//       const delay = baseDelay * Math.pow(2, attempt);
-//
-//       console.log(`Attempt ${attempt + 1} failed. Retrying in ${delay}ms...`);
-//       console.log('Reason:', error.reason);
-//       console.log(error)
-//
-//       await sleep(delay);
-//     }
-//   }
-//
-//   throw new Error('Logic error, this should never be reached')
-// }
+type ModelAlias = "gemini" | "gemini25" | "glm" | "hf" | "mistral";
 
 export async function promptLlmObject<T>(
   prompt: string,
@@ -67,6 +19,7 @@ export async function promptLlmObject<T>(
 ): Promise<T> {
   const models: Record<string, typeof GEMINI_MODEL> = {
     gemini: GEMINI_MODEL,
+    gemini25: GEMINI25_MODEL,
     glm: GLM_MODEL,
     hf: HF_MODEL,
     mistral: MISTRAL_MODEL

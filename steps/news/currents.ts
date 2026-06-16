@@ -12,6 +12,20 @@ export const NEWS_CATEGORIES = [
 
 export type Category = (typeof NEWS_CATEGORIES)[number];
 
+// Supported Currents region codes (GET /v2/available/regions). Mostly ISO
+// 2-letter country codes plus a few aggregates (EU, ASIA, INT). The API takes a
+// single region per request, so this drives a single-select dropdown.
+export const NEWS_REGIONS = [
+  'AE', 'AF', 'AR', 'ASIA', 'AT', 'AU', 'BA', 'BD', 'BE', 'BO',
+  'BR', 'CA', 'CH', 'CL', 'CN', 'CO', 'CZ', 'DE', 'DK', 'EC',
+  'EE', 'EG', 'ES', 'EU', 'FI', 'FR', 'GB', 'GH', 'GR', 'HK',
+  'HU', 'ID', 'IE', 'IL', 'IN', 'INT', 'IQ', 'IR', 'IT', 'JP',
+  'KE', 'KH', 'KR', 'KW', 'LB', 'LU', 'MM', 'MX', 'MY', 'NG',
+  'NK', 'NL', 'NO', 'NP', 'NZ', 'PA', 'PE', 'PH', 'PK', 'PL',
+  'PS', 'PT', 'PY', 'QA', 'RO', 'RS', 'RU', 'SA', 'SE', 'SG',
+  'SI', 'TH', 'TR', 'TW', 'US', 'UY', 'VE', 'VN', 'ZW',
+] as const;
+
 export interface NewsArticle {
   id: string;
   title: string;

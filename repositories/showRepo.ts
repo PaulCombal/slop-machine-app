@@ -1,5 +1,5 @@
 import { sql } from "../db/client.ts";
-import type { ShowConfig } from "../show.mts";
+import type { ShowConfig, ShowStatus } from "../show.mts";
 import { rowToPersonaConfig, rowToShowConfig } from "./reconstruct.ts";
 
 /**
@@ -22,5 +22,14 @@ export const showRepo = {
 			result.push(rowToShowConfig(s, roster.map(rowToPersonaConfig)));
 		}
 		return result;
+	},
+
+	/**
+	 * Set a show's lifecycle status by its key. Key-scoped (not owner-scoped) so
+	 * the breakdown worker, which only knows the show key, can flip the state when
+	 * the job starts/finishes.
+	 */
+	async setStatusByKey(showKey: string, status: ShowStatus): Promise<void> {
+		await sql`update shows set status = ${status} where show_key = ${showKey}`;
 	},
 };

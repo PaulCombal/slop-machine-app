@@ -1,11 +1,18 @@
 import { z } from "zod";
 import type { ShowConfig } from "../show.mts";
+import type { Slot } from "../types/app";
 import { promptLlmObject } from "../utils/llm.mts";
 
-export type EpisodePlanSentence = {
+export type EpisodePlanAppearance = {
 	personaId: string;
-	sentence: string;
 	stance: string;
+	slot: Slot;
+};
+
+export type EpisodePlanSentence = {
+	speakerId: string;
+	appearances: EpisodePlanAppearance[];
+	sentence: string;
 	illustration: string;
 };
 
@@ -38,6 +45,13 @@ function dummy(show: ShowConfig): SeriesManifest {
 
 	// Honour the configured episode count so DEBUG matches the show's split.
 	const count = show.split.type === "episodeCount" ? show.split.count : 2;
+	const stage: EpisodePlanAppearance[] =
+		a === b
+			? [{ personaId: a, stance: firstStance(a), slot: "center" }]
+			: [
+					{ personaId: a, stance: firstStance(a), slot: "left" },
+					{ personaId: b, stance: firstStance(b), slot: "right" },
+				];
 	const episodes: EpisodePlan[] = Array.from({ length: count }, (_, index) => {
 		const n = index + 1;
 		return {
@@ -49,15 +63,15 @@ function dummy(show: ShowConfig): SeriesManifest {
 		status: "pending" as const,
 		sentences: [
 			{
-				personaId: a,
+				speakerId: a,
+				appearances: stage,
 				sentence: `Day ${n} in the house and something feels off.`,
-				stance: firstStance(a),
 				illustration: "house",
 			},
 			{
-				personaId: b,
+				speakerId: b,
+				appearances: stage,
 				sentence: "Trust me, I already know exactly what's going on.",
-				stance: firstStance(b),
 				illustration: "whisper",
 			},
 		],
@@ -101,10 +115,22 @@ export async function generateSeriesBreakdown(
 		)
 		.join("\n");
 
-	const SentenceSchema = z.object({
+	const SlotEnum = z.enum([
+		"far-left",
+		"left",
+		"center",
+		"right",
+		"far-right",
+	]);
+	const AppearanceSchema = z.object({
 		personaId: z.enum(validIds),
-		sentence: z.string(),
 		stance: z.string(),
+		slot: SlotEnum,
+	});
+	const SentenceSchema = z.object({
+		speakerId: z.enum(validIds),
+		appearances: z.array(AppearanceSchema).min(1),
+		sentence: z.string(),
 		illustration: z.string(),
 	});
 
@@ -142,8 +168,15 @@ ${show.prose}
 - Break the story into EXACTLY ${episodeCount} episodes, in chronological order.
 - Each episode is a self-contained Short but part of an ongoing arc.
 - For each episode, choose the CAST: at most ${show.maxCastPerEpisode} persona id(s) that actually speak in that episode (only ids from the cast above).
-- Every sentence's "personaId" MUST be one of that episode's chosen cast.
 - CONTINUITY: from episode 2 onward, open with a quick one-line recap; end every episode (except the last) on a cliffhanger/hook.
+
+# STAGING (who is on screen, and where)
+- Each line has a "speakerId" (the persona talking) and an "appearances" list: EVERY character visible on screen for that line, INCLUDING the speaker.
+- Each appearance has a "slot" (one of: far-left, left, center, right, far-right) and a "stance".
+- Keep a character on the SAME slot for every line where they stay on screen (do not move them around).
+- Place two characters who are interacting on OPPOSITE sides (e.g. left vs right) so they face each other.
+- The "speakerId" MUST appear in that line's "appearances".
+- Use 1 to ${show.maxCastPerEpisode} characters on screen per line; only show characters who are actually in the scene.
 
 # ADDITIONAL INSTRUCTIONS
 ${show.prompt ? `- ${show.prompt}` : ""}
@@ -163,7 +196,14 @@ Return ONLY a valid JSON object of the form:
       "hashtags": ["#..."],
       "cast": ["persona id", "..."],
       "sentences": [
-        { "personaId": "Exact id from cast", "sentence": "", "stance": "Exact stance for that character", "illustration": "" }
+        {
+          "speakerId": "Exact id from cast",
+          "appearances": [
+            { "personaId": "Exact id from cast", "stance": "Exact stance for that character", "slot": "left" }
+          ],
+          "sentence": "",
+          "illustration": ""
+        }
       ]
     }
   ]

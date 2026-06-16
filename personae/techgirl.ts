@@ -7,6 +7,7 @@ export const techgirl: PersonaConfig = {
 	posXOffset: 0.2,
 	groupPosXRange: 0.2,
 	groupPosXOffset: 0.2,
+	mirrorable: false,
 	ttsProvider: 'kokoro',
 	elevenLabsVoiceId: "cgSgspJ2msm6clMCkdW9",
 	kokoroVoiceId: "af_heart",

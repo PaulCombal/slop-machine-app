@@ -24,8 +24,20 @@ export type SplitStrategy =
  * personae appear in each episode) plus the same distribution settings a
  * PersonaGroupConfig has, so every episode can reuse the existing pipeline.
  */
+/**
+ * Show lifecycle. `draft` = prose/cast/breakdown settings editable. `breaking_down`
+ * = the breakdown job is running. `in_production` = a manifest exists and episodes
+ * can be rendered/published. Anything other than `draft` freezes the breakdown
+ * inputs (prose, prompt, roster, split, maxCastPerEpisode).
+ */
+export type ShowStatus = "draft" | "breaking_down" | "in_production";
+
+export const isShowLocked = (s?: ShowStatus): boolean => !!s && s !== "draft";
+
 export type ShowConfig = DistributionConfig & {
 	id: string;
+	/** Lifecycle state; controls whether the breakdown inputs are editable. */
+	status?: ShowStatus;
 	/** The raw long script / synopsis the writer breaks into episodes. */
 	prose: string;
 	/** Optional tone / dynamics guidance for the writer (like group.prompt). */

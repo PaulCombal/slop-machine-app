@@ -13,6 +13,7 @@ import {
 	toPersonaDTO,
 	toShowDTO,
 } from "../dto.ts";
+import type { ShowStatus } from "../../show.mts";
 import type { GroupInput, PersonaInput, ShowInput } from "../validation.ts";
 
 /**
@@ -77,6 +78,49 @@ export const definitionsRepo = {
 		}));
 	},
 
+	/** Effective S3 asset id (asset_id ?? key) for a persona, or null if absent. Cheap single-column read. */
+	async personaAssetId(owner: CurrentOwner, key: string): Promise<string | null> {
+		const rows = await sql`
+			select asset_id from personae where user_id = ${owner.id} and persona_key = ${key} limit 1
+		`;
+		return rows.length ? rows[0].asset_id || key : null;
+	},
+
+	/** A show's lifecycle status, or undefined if absent. Cheap single-column read. */
+	async showStatus(owner: CurrentOwner, key: string): Promise<ShowStatus | undefined> {
+		const rows = await sql`
+			select status from shows where user_id = ${owner.id} and show_key = ${key} limit 1
+		`;
+		return rows.length ? ((rows[0].status ?? "draft") as ShowStatus) : undefined;
+	},
+
+	/** Group + show keys this persona is a member of (owner-scoped), for its detail page. */
+	async membershipsForPersona(
+		owner: CurrentOwner,
+		key: string,
+	): Promise<{ groups: string[]; shows: string[] }> {
+		const [groups, shows] = await Promise.all([
+			sql`
+				select g.group_key from persona_group_members m
+				join personae p on p.id = m.persona_id
+				join persona_groups g on g.id = m.group_id
+				where p.user_id = ${owner.id} and p.persona_key = ${key}
+				order by g.group_key
+			`,
+			sql`
+				select s.show_key from show_roster r
+				join personae p on p.id = r.persona_id
+				join shows s on s.id = r.show_id
+				where p.user_id = ${owner.id} and p.persona_key = ${key}
+				order by s.show_key
+			`,
+		]);
+		return {
+			groups: groups.map((r: { group_key: string }) => r.group_key),
+			shows: shows.map((r: { show_key: string }) => r.show_key),
+		};
+	},
+
 	// ---- edit-form prefill (full editable shape) ------------------------
 	async personaForm(
 		owner: CurrentOwner,
@@ -106,6 +150,7 @@ export const definitionsRepo = {
 			posXOffset: num(r.pos_x_offset),
 			groupPosXRange: num(r.group_pos_x_range),
 			groupPosXOffset: num(r.group_pos_x_offset),
+			mirrorable: Boolean(r.mirrorable),
 			newsRegion: r.news_region,
 			newsTopics: r.news_topics ?? [],
 			ytCategoryCode: r.yt_category_code,
@@ -113,6 +158,7 @@ export const definitionsRepo = {
 			promptVideoMeta: r.prompt_video_meta,
 			promptVideoMetaGivenNewsTmpl: r.prompt_video_meta_given_news_tmpl,
 			promptScriptGuidelinesTmpl: r.prompt_script_guidelines_tmpl,
+			stanceDefaultPrompt: r.stance_default_prompt ?? "",
 			stances:
 				typeof r.stances === "string" ? JSON.parse(r.stances) : r.stances,
 		};
@@ -184,25 +230,28 @@ export const definitionsRepo = {
 				user_id, persona_key, asset_id, persona_name, language, theme, theme_volume,
 				tts_provider, elevenlabs_voice_id, kokoro_voice_id, kokoro_language,
 				qwen_voice_id, pocket_voice_id, pocket_use_voice_sample,
-				size, pos_x_range, pos_x_offset, group_pos_x_range, group_pos_x_offset,
+				size, pos_x_range, pos_x_offset, group_pos_x_range, group_pos_x_offset, mirrorable,
 				news_region, news_topics, yt_category_code, prompt_personality, prompt_video_meta,
-				prompt_video_meta_given_news_tmpl, prompt_script_guidelines_tmpl, stances
+				prompt_video_meta_given_news_tmpl, prompt_script_guidelines_tmpl, stance_default_prompt, stances
 			) values (
 				${owner.id}, ${input.key}, ${input.assetId}, ${input.personaName}, ${input.language}, ${input.theme}, ${input.themeVolume},
 				${input.ttsProvider}, ${input.elevenLabsVoiceId}, ${input.kokoroVoiceId}, ${input.kokoroLanguage},
 				${input.qwenVoiceId}, ${input.pocketVoiceId}, ${input.pocketUseVoiceSample},
-				${input.size}, ${input.posXRange}, ${input.posXOffset}, ${input.groupPosXRange}, ${input.groupPosXOffset},
+				${input.size}, ${input.posXRange}, ${input.posXOffset}, ${input.groupPosXRange}, ${input.groupPosXOffset}, ${input.mirrorable},
 				${input.newsRegion}, ${pgArray(input.newsTopics)}::text[], ${input.ytCategoryCode}, ${input.promptPersonality}, ${input.promptVideoMeta},
-				${input.promptVideoMetaGivenNewsTmpl}, ${input.promptScriptGuidelinesTmpl}, ${JSON.stringify(input.stances)}::jsonb
+				${input.promptVideoMetaGivenNewsTmpl}, ${input.promptScriptGuidelinesTmpl}, ${input.stanceDefaultPrompt}, ${JSON.stringify(input.stances)}::jsonb
 			)
 		`;
 		await publishInvalidate();
 	},
 
+	// `mirrorable`, `stances` and `stance_default_prompt` are managed on the stance
+	// gallery (setStanceSettings/addStance), so the edit form must NOT write them —
+	// the narrowed type makes that contract compiler-enforced, not just convention.
 	async updatePersona(
 		owner: CurrentOwner,
 		key: string,
-		input: PersonaInput,
+		input: Omit<PersonaInput, "mirrorable" | "stances" | "stanceDefaultPrompt">,
 	): Promise<void> {
 		const res = await sql`
 			update personae set
@@ -218,8 +267,52 @@ export const definitionsRepo = {
 				yt_category_code = ${input.ytCategoryCode}, prompt_personality = ${input.promptPersonality},
 				prompt_video_meta = ${input.promptVideoMeta},
 				prompt_video_meta_given_news_tmpl = ${input.promptVideoMetaGivenNewsTmpl},
-				prompt_script_guidelines_tmpl = ${input.promptScriptGuidelinesTmpl},
-				stances = ${JSON.stringify(input.stances)}::jsonb
+				prompt_script_guidelines_tmpl = ${input.promptScriptGuidelinesTmpl}
+			where user_id = ${owner.id} and persona_key = ${key}
+		`;
+		if (res.count === 0) throw new DefinitionError({ key: "persona not found" });
+		await publishInvalidate();
+	},
+
+	/** Add (or update by name) a single stance, preserving its other props (e.g. animations). */
+	async addStance(
+		owner: CurrentOwner,
+		key: string,
+		stance: { name: string; facing: string; animationInPreset?: string | null },
+	): Promise<void> {
+		const current = await readStances(owner, key);
+		const existing = current.find((s) => s.name === stance.name);
+		const next = current.filter((s) => s.name !== stance.name);
+		const merged: StanceRow = { ...(existing ?? {}), name: stance.name, facing: stance.facing };
+		// undefined → leave the animation as-is; "" → clear it; a preset → set the entrance animation.
+		if (stance.animationInPreset !== undefined) {
+			if (stance.animationInPreset) merged.animations = { in: { preset: stance.animationInPreset } };
+			else delete merged.animations;
+		}
+		next.push(merged);
+		await writeStances(owner, key, next);
+	},
+
+	/** Remove a stance by name from a persona's stances JSONB. */
+	async removeStance(
+		owner: CurrentOwner,
+		key: string,
+		name: string,
+	): Promise<void> {
+		const current = await readStances(owner, key);
+		await writeStances(owner, key, current.filter((s) => s.name !== name));
+	},
+
+	/** Set the persona's stance-level settings (default prompt + mirrorable), managed on the gallery. */
+	async setStanceSettings(
+		owner: CurrentOwner,
+		key: string,
+		settings: { defaultPrompt: string; mirrorable: boolean },
+	): Promise<void> {
+		const res = await sql`
+			update personae set
+				stance_default_prompt = ${settings.defaultPrompt},
+				mirrorable = ${settings.mirrorable}
 			where user_id = ${owner.id} and persona_key = ${key}
 		`;
 		if (res.count === 0) throw new DefinitionError({ key: "persona not found" });
@@ -357,7 +450,50 @@ export const definitionsRepo = {
 		await sql`delete from shows where user_id = ${owner.id} and show_key = ${key}`;
 		await publishInvalidate();
 	},
+
+	/** Flip a show's lifecycle status (owner-scoped). */
+	async setShowStatus(
+		owner: CurrentOwner,
+		key: string,
+		status: ShowStatus,
+	): Promise<void> {
+		const res = await sql`
+			update shows set status = ${status}
+			where user_id = ${owner.id} and show_key = ${key}
+		`;
+		if (res.count === 0) throw new DefinitionError({ key: "show not found" });
+		await publishInvalidate();
+	},
 };
+
+type StanceRow = { name: string; [k: string]: unknown };
+
+/** Read a persona's stances JSONB (owner-scoped), normalised to an array. */
+async function readStances(
+	owner: CurrentOwner,
+	key: string,
+): Promise<StanceRow[]> {
+	const rows = await sql`
+		select stances from personae where user_id = ${owner.id} and persona_key = ${key} limit 1
+	`;
+	if (!rows.length) throw new DefinitionError({ key: "persona not found" });
+	return (
+		typeof rows[0].stances === "string" ? JSON.parse(rows[0].stances) : rows[0].stances
+	) as StanceRow[];
+}
+
+/** Overwrite a persona's stances JSONB and invalidate the registry cache. */
+async function writeStances(
+	owner: CurrentOwner,
+	key: string,
+	stances: StanceRow[],
+): Promise<void> {
+	await sql`
+		update personae set stances = ${JSON.stringify(stances)}::jsonb
+		where user_id = ${owner.id} and persona_key = ${key}
+	`;
+	await publishInvalidate();
+}
 
 /** Throw a field error if a per-tenant key is already taken. */
 async function assertKeyFree(

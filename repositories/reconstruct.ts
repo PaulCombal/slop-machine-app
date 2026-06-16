@@ -36,6 +36,7 @@ export function rowToPersonaConfig(row: Row): PersonaConfig {
 		posXOffset: num(row.pos_x_offset),
 		groupPosXRange: num(row.group_pos_x_range),
 		groupPosXOffset: num(row.group_pos_x_offset),
+		mirrorable: Boolean(row.mirrorable),
 		personaName: row.persona_name,
 		theme: row.theme,
 		themeVolume: num(row.theme_volume),
@@ -58,6 +59,7 @@ export function rowToPersonaConfig(row: Row): PersonaConfig {
 		// text[] column → already a JS array from the driver.
 		newsTopics: row.news_topics as PersonaConfig["newsTopics"],
 		ytCategoryCode: row.yt_category_code,
+		stanceDefaultPrompt: row.stance_default_prompt ?? "",
 	};
 }
 
@@ -88,6 +90,7 @@ export function rowToShowConfig(row: Row, roster: PersonaConfig[]): ShowConfig {
 	return {
 		...distributionFromRow(row),
 		id: row.show_key,
+		status: (row.status ?? "draft") as ShowConfig["status"],
 		prose: row.prose,
 		prompt: row.prompt,
 		roster,

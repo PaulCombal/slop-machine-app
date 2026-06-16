@@ -25,6 +25,7 @@ export type AnimationSet = {
 
 export type StanceConfig = {
 	name: string;
+	facing?: "left" | "right" | "camera";
 	animations?: AnimationSet;
 };
 
@@ -42,6 +43,7 @@ export type PersonaConfig = {
 	posXOffset: number;
 	groupPosXRange: number;
 	groupPosXOffset: number;
+	mirrorable: boolean;
 	personaName: string;
 	theme: string;
 	themeVolume: number;
@@ -61,6 +63,8 @@ export type PersonaConfig = {
 	newsRegion: string;
 	newsTopics: CurrentsCategory[];
 	ytCategoryCode: string;
+	/** Default image prompt for this persona's stances (the character's look). */
+	stanceDefaultPrompt?: string;
 };
 
 /** Seed fixtures (imported once by db/seed.ts) — not the runtime source. */

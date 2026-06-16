@@ -18,14 +18,15 @@ This project was created using `bun init` in bun v1.3.9. [Bun](https://bun.com) 
 
 Les vars d'en qui ne sont pas set dans le docker compose
 
-| Var name                 | description                                      | values              |
-|--------------------------|--------------------------------------------------|---------------------|
-| TTS_GENERATION_PARALLEL  | Run TTS API requests concurrently                | true/unset          |
-| ILLUSTRATION_DL_PARALLEL | Run illustration downloads concurrently          | true/unset          |
-| SKIP_YT_UPLOAD           | Skip uploading video to YT Shorts                | unset/any           |
-| VIDEO_QUALITY            | Ask for low/high res render                      | high/any            |
-| GROUP_MODEL_ALIAS        | Model to use for script generation (groups only) | gemini/mistral/hf.. |
-| TOPIC_MODEL_ALIAS        | Model to use for topic selection                 | gemini/mistral/hf.. |
+| Var name                 | description                                      | values                                 |
+|--------------------------|--------------------------------------------------|----------------------------------------|
+| TTS_GENERATION_PARALLEL  | Run TTS API requests concurrently                | true/unset                             |
+| ILLUSTRATION_DL_PARALLEL | Run illustration downloads concurrently          | true/unset                             |
+| SKIP_YT_UPLOAD           | Skip uploading video to YT Shorts                | unset/any                              |
+| VIDEO_QUALITY            | Ask for low/high res render                      | high/any                               |
+| GROUP_MODEL_ALIAS        | Model to use for script generation (groups only) | gemini/mistral/hf..                    |
+| TOPIC_MODEL_ALIAS        | Model to use for topic selection                 | gemini/mistral/hf..                    |
+| PERSONA_MODEL_ALIAS      | Model for "generate personae from prose"         | gemini25 (default)/gemini/mistral/hf.. |
 
 ## Code format
 

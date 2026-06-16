@@ -11,6 +11,7 @@ import {queueShowEpisodePipeline} from "../utils/queueShowEpisodePipeline.ts";
 import {getShow} from "../show.mts";
 import {generateSeriesBreakdown} from "../steps/generate_series.mts";
 import {loadManifest, saveManifest} from "../utils/seriesManifest.ts";
+import {showRepo} from "../repositories/showRepo.ts";
 import type {UploadPlatform} from "../persona_group.mts";
 import {ensureDatabaseReady} from "../db/bootstrap.ts";
 import {initRegistryCache} from "../repositories/registryCache.ts";
@@ -110,13 +111,19 @@ async function handleShowBreakdown(job: AssetsJob) {
 
   // Break the whole prose into an episode manifest WITHOUT rendering anything,
   // so the episodes can be reviewed before any renders are scheduled. Overwrites
-  // any existing manifest for this show.
+  // any existing manifest for this show. On success the show is locked into
+  // 'in_production'; on failure it falls back to 'draft' so it stays editable.
   console.log(`== Generating series breakdown for show "${showId}"`);
-  const manifest = await generateSeriesBreakdown(getShow(showId));
-  await saveManifest(manifest);
-  console.log(`= ${manifest.episodes.length} episodes planned for "${showId}"`);
-
-  return {showId, episodes: manifest.episodes.length};
+  try {
+    const manifest = await generateSeriesBreakdown(getShow(showId));
+    await saveManifest(manifest);
+    await showRepo.setStatusByKey(showId, 'in_production');
+    console.log(`= ${manifest.episodes.length} episodes planned for "${showId}"`);
+    return {showId, episodes: manifest.episodes.length};
+  } catch (e) {
+    await showRepo.setStatusByKey(showId, 'draft').catch(() => {});
+    throw e;
+  }
 }
 
 async function handleGenerateEpisodeAssets(job: AssetsJob) {

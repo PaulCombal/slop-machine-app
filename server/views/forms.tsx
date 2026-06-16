@@ -1,4 +1,4 @@
-import { NEWS_CATEGORIES } from "../../steps/news/currents.ts";
+import { NEWS_CATEGORIES, NEWS_REGIONS } from "../../steps/news/currents.ts";
 import type { GroupInput, PersonaInput, ShowInput } from "../validation.ts";
 
 /**
@@ -60,23 +60,25 @@ function Num({
 	);
 }
 
-function Area({
+export function Area({
 	name,
 	label,
 	value,
 	errors,
 	rows,
+	placeholder,
 }: {
 	name: string;
 	label: string;
 	value: Vals;
 	errors: Errs;
 	rows?: number;
+	placeholder?: string;
 }) {
 	return (
 		<label>
 			<span>{label}</span>
-			<textarea name={name} rows={rows ?? 4}>
+			<textarea name={name} rows={rows ?? 4} placeholder={placeholder}>
 				{s(value[name])}
 			</textarea>
 			<Err errors={errors} name={name} />
@@ -113,7 +115,7 @@ function Select({
 	);
 }
 
-function Checkbox({
+export function Checkbox({
 	name,
 	label,
 	value,
@@ -166,6 +168,95 @@ function CheckGroup({
 	);
 }
 
+/** Currents news region as a dropdown of valid codes (plus a blank "any" option). */
+function RegionField({ value, errors }: { value: Vals; errors: Errs }) {
+	const cur = s(value.newsRegion);
+	// Keep an unknown current value selectable in case the API's list shifts.
+	const opts =
+		cur && !(NEWS_REGIONS as readonly string[]).includes(cur)
+			? [cur, ...NEWS_REGIONS]
+			: [...NEWS_REGIONS];
+	return (
+		<label>
+			<span>news region (Currents)</span>
+			<select name="newsRegion">
+				<option value="" selected={cur === ""}>
+					— any region —
+				</option>
+				{opts.map((k) => (
+					<option value={k} selected={k === cur}>
+						{k}
+					</option>
+				))}
+			</select>
+			<Err errors={errors} name="newsRegion" />
+		</label>
+	);
+}
+
+/** YouTube videoCategoryId codes (label + numeric code), in the API's listing. */
+const YT_CATEGORIES: { code: string; label: string }[] = [
+	{ code: "2", label: "Autos & Vehicles" },
+	{ code: "1", label: "Film & Animation" },
+	{ code: "10", label: "Music" },
+	{ code: "15", label: "Pets & Animals" },
+	{ code: "17", label: "Sports" },
+	{ code: "18", label: "Short Movies" },
+	{ code: "19", label: "Travel & Events" },
+	{ code: "20", label: "Gaming" },
+	{ code: "21", label: "Videoblogging" },
+	{ code: "22", label: "People & Blogs" },
+	{ code: "23", label: "Comedy" },
+	{ code: "24", label: "Entertainment" },
+	{ code: "25", label: "News & Politics" },
+	{ code: "26", label: "Howto & Style" },
+	{ code: "27", label: "Education" },
+	{ code: "28", label: "Science & Technology" },
+	{ code: "29", label: "Nonprofits & Activism" },
+	{ code: "30", label: "Movies" },
+	{ code: "31", label: "Anime/Animation" },
+	{ code: "32", label: "Action/Adventure" },
+	{ code: "33", label: "Classics" },
+	{ code: "34", label: "Comedy" },
+	{ code: "35", label: "Documentary" },
+	{ code: "36", label: "Drama" },
+	{ code: "37", label: "Family" },
+	{ code: "38", label: "Foreign" },
+	{ code: "39", label: "Horror" },
+	{ code: "40", label: "Sci-Fi/Fantasy" },
+	{ code: "41", label: "Thriller" },
+	{ code: "42", label: "Shorts" },
+	{ code: "43", label: "Shows" },
+	{ code: "44", label: "Trailers" },
+];
+
+/** YouTube category as a dropdown of "code - name" (plus a blank "none" option). */
+function YtCategoryField({ value, errors }: { value: Vals; errors: Errs }) {
+	const cur = s(value.ytCategoryCode);
+	const known = YT_CATEGORIES.some((c) => c.code === cur);
+	return (
+		<label>
+			<span>YouTube category code</span>
+			<select name="ytCategoryCode">
+				<option value="" selected={cur === ""}>
+					— none —
+				</option>
+				{!known && cur ? (
+					<option value={cur} selected>
+						{cur}
+					</option>
+				) : null}
+				{YT_CATEGORIES.map((c) => (
+					<option value={c.code} selected={c.code === cur}>
+						{c.code} - {c.label}
+					</option>
+				))}
+			</select>
+			<Err errors={errors} name="ytCategoryCode" />
+		</label>
+	);
+}
+
 /** Theme key as a dropdown of saved themes (plus a blank "no theme" option). */
 function ThemeField({
 	value,
@@ -207,137 +298,109 @@ function Actions({ cancelHref }: { cancelHref: string }) {
 	);
 }
 
-// ---- Stance editor -----------------------------------------------------
+// ---- Persona -----------------------------------------------------------
+
+/** Default pocket TTS voices; the id must be one of these unless it's a voice copy. */
+const POCKET_VOICES = [
+	"alba",
+	"marius",
+	"javert",
+	"jean",
+	"fantine",
+	"cosette",
+	"eponine",
+	"azelma",
+];
 
 /**
- * Entrance-animation presets a stance can pick, mirrored from the renderer's
- * registry (`remotion-app/src/animations/registry.ts`). Only the `in` phase has
- * presets today; `active`/`out` are intentionally omitted until ones exist.
+ * Preset mode: a dropdown of the default voices. Voice-cloning mode: the voice
+ * comes from an uploaded sample (`voiceSample` → S3, see saveVoiceSample), so the
+ * dropdown is swapped for a file upload + audio preview, edit-only. A script
+ * toggles the halves off the checkbox.
  */
-const STANCE_IN_PRESETS = ["pop-default", "shake"];
-
-/** One stance: name + entrance animation + PNG (live preview, existing thumb). */
-function StanceRow({
-	i,
-	name,
-	animIn,
-	previewSrc,
-}: {
-	i: number | string;
-	name: string;
-	animIn: string;
-	previewSrc?: string;
-}) {
-	return (
-		<div class="stance-row">
-			<input name={`stance_name_${i}`} value={name} placeholder="stance name" />
-			<select name={`stance_anim_in_${i}`}>
-				<option value="" selected={animIn === ""}>
-					(no entrance animation)
-				</option>
-				{STANCE_IN_PRESETS.map((p) => (
-					<option value={p} selected={p === animIn}>
-						{p}
-					</option>
-				))}
-			</select>
-			<span class="stance-png">
-				<img
-					class="stance-prev"
-					src={previewSrc}
-					alt=""
-					style={previewSrc ? "" : "display:none"}
-				/>
-				<input
-					type="file"
-					name={`stance_png_${i}`}
-					accept="image/png"
-					class="stance-file"
-				/>
-			</span>
-			<button type="button" class="linkbtn stance-del">
-				remove
-			</button>
-		</div>
-	);
-}
-
-/**
- * Dynamic list of stance rows. Existing rows render their current PNG (served by
- * `GET /personae/:id/stances/:stance/png`); the `<template>` + inline script add
- * blank rows client-side and show a local preview the moment a file is chosen.
- * The `__I__` placeholder is reindexed per added row so each input name is unique;
- * the route reassembles stances from the `stance_*_<n>` field groups.
- */
-function StanceEditor({
-	stances,
+function PocketVoiceField({
+	value,
+	errors,
 	personaKey,
 	isEdit,
 }: {
-	stances: unknown;
+	value: Vals;
+	errors: Errs;
 	personaKey: string;
 	isEdit: boolean;
 }) {
-	const list = (Array.isArray(stances) ? stances : []) as Vals[];
-	const rows = list.length ? list : [{}];
-	const previewFor = (name: string) =>
-		isEdit && personaKey && name
-			? `/personae/${encodeURIComponent(personaKey)}/stances/${encodeURIComponent(name)}/png`
-			: undefined;
+	const cur = s(value.pocketVoiceId);
+	const useSample = Boolean(value.pocketUseVoiceSample);
+	// Keep an unknown current value selectable so editing doesn't silently drop it.
+	const opts = cur && !POCKET_VOICES.includes(cur) ? [cur, ...POCKET_VOICES] : POCKET_VOICES;
+	const existingSrc =
+		isEdit && personaKey && useSample
+			? `/personae/${encodeURIComponent(personaKey)}/voice-sample`
+			: "";
 	return (
-		<div class="stances">
-			<span class="stances-label">stances — name · entrance animation · PNG</span>
-			<div id="stances-list">
-				{rows.map((st, i) => {
-					const name = s(st.name);
-					const anim = st.animations as Vals | undefined;
-					const animIn = anim ? s((anim.in as Vals | undefined)?.preset) : "";
-					return (
-						<StanceRow i={i} name={name} animIn={animIn} previewSrc={previewFor(name)} />
-					);
-				})}
-			</div>
-			<button type="button" id="stance-add" class="linkbtn">
-				+ add stance
-			</button>
-			<template id="stance-row-tmpl">
-				<StanceRow i="__I__" name="" animIn="" />
-			</template>
-			<script dangerouslySetInnerHTML={{ __html: STANCE_SCRIPT }} />
-		</div>
+		<label>
+			<span>pocket voice id</span>
+			<select
+				name="pocketVoiceId"
+				id="pocket-voice-select"
+				disabled={useSample}
+				style={useSample ? "display:none" : ""}
+			>
+				{opts.map((o) => (
+					<option value={o} selected={o === cur}>
+						{o}
+					</option>
+				))}
+			</select>
+			<span id="pocket-custom-wrap" class="pocket-custom" style={useSample ? "" : "display:none"}>
+				{isEdit ? (
+					<>
+						<input
+							type="file"
+							name="voiceSample"
+							id="voice-sample-file"
+							accept=".mp3,audio/mpeg"
+							disabled={!useSample}
+						/>
+						<audio
+							id="voice-sample-prev"
+							controls
+							src={existingSrc || undefined}
+							style={existingSrc ? "" : "display:none"}
+						/>
+					</>
+				) : (
+					<span class="hint">save the persona, then upload a voice sample by editing it</span>
+				)}
+			</span>
+			<Err errors={errors} name="pocketVoiceId" />
+			<script dangerouslySetInnerHTML={{ __html: POCKET_VOICE_SCRIPT }} />
+		</label>
 	);
 }
 
-const STANCE_SCRIPT = `
+const POCKET_VOICE_SCRIPT = `
 (function () {
-  var list = document.getElementById('stances-list');
-  var tmpl = document.getElementById('stance-row-tmpl');
-  var add = document.getElementById('stance-add');
-  if (!list || !tmpl || !add) return;
-  var idx = list.querySelectorAll('.stance-row').length;
-  function wire(row) {
-    var del = row.querySelector('.stance-del');
-    if (del) del.addEventListener('click', function () { row.remove(); });
-    var file = row.querySelector('.stance-file');
-    var img = row.querySelector('.stance-prev');
-    if (file && img) file.addEventListener('change', function () {
-      var f = file.files && file.files[0];
-      if (f) { img.src = URL.createObjectURL(f); img.style.display = ''; }
-    });
+  var cb = document.querySelector('input[name="pocketUseVoiceSample"]');
+  var sel = document.getElementById('pocket-voice-select');
+  var wrap = document.getElementById('pocket-custom-wrap');
+  var file = document.getElementById('voice-sample-file');
+  var prev = document.getElementById('voice-sample-prev');
+  if (!cb || !sel || !wrap) return;
+  function sync() {
+    var custom = cb.checked;
+    sel.disabled = custom; sel.style.display = custom ? 'none' : '';
+    wrap.style.display = custom ? '' : 'none';
+    if (file) file.disabled = !custom;
   }
-  Array.prototype.forEach.call(list.querySelectorAll('.stance-row'), wire);
-  add.addEventListener('click', function () {
-    var tmp = document.createElement('div');
-    tmp.innerHTML = tmpl.innerHTML.replace(/__I__/g, String(idx++)).trim();
-    var row = tmp.firstElementChild;
-    if (!row) return;
-    list.appendChild(row);
-    wire(row);
+  if (file && prev) file.addEventListener('change', function () {
+    var f = file.files && file.files[0];
+    if (f) { prev.src = URL.createObjectURL(f); prev.style.display = ''; }
   });
+  cb.addEventListener('change', sync);
+  sync();
 })();
 `;
-
-// ---- Persona -----------------------------------------------------------
 
 export function PersonaForm({
 	action,
@@ -367,14 +430,14 @@ export function PersonaForm({
 			<Text name="kokoroVoiceId" label="kokoro voice id" value={v} errors={errors} />
 			<Text name="kokoroLanguage" label="kokoro language" value={v} errors={errors} />
 			<Text name="qwenVoiceId" label="qwen voice id" value={v} errors={errors} />
-			<Text name="pocketVoiceId" label="pocket voice id" value={v} errors={errors} />
 			<Checkbox name="pocketUseVoiceSample" label="pocket: use voice sample" value={v} />
+			<PocketVoiceField value={v} errors={errors} personaKey={s(v.key)} isEdit={isEdit} />
 			<Num name="size" label="size" value={v} errors={errors} />
 			<Num name="posXRange" label="posX range" value={v} errors={errors} />
 			<Num name="posXOffset" label="posX offset" value={v} errors={errors} />
 			<Num name="groupPosXRange" label="group posX range" value={v} errors={errors} />
 			<Num name="groupPosXOffset" label="group posX offset" value={v} errors={errors} />
-			<Text name="newsRegion" label="news region" value={v} errors={errors} />
+			<RegionField value={v} errors={errors} />
 			<CheckGroup
 				name="newsTopics"
 				label="news topics"
@@ -382,13 +445,20 @@ export function PersonaForm({
 				errors={errors}
 				options={NEWS_CATEGORIES.map((c) => ({ key: c, label: c }))}
 			/>
-			<Text name="ytCategoryCode" label="YouTube category code" value={v} errors={errors} />
+			<YtCategoryField value={v} errors={errors} />
 			<Area name="promptPersonality" label="prompt: personality" value={v} errors={errors} rows={4} />
 			<Area name="promptVideoMeta" label="prompt: video meta (no news)" value={v} errors={errors} rows={4} />
 			<Area name="promptVideoMetaGivenNewsTmpl" label="template: video meta given news (Eta)" value={v} errors={errors} rows={6} />
 			<Area name="promptScriptGuidelinesTmpl" label="template: script guidelines (Eta)" value={v} errors={errors} rows={6} />
-			<StanceEditor stances={v.stances} personaKey={s(v.key)} isEdit={isEdit} />
-			<Err errors={errors} name="stances" />
+			{isEdit ? (
+				<p>
+					<a class="linkbtn" href={`/personae/${encodeURIComponent(s(v.key))}/stances`}>
+						🎭 Manage stances →
+					</a>
+				</p>
+			) : (
+				<span class="hint">save the persona, then add stances from its stance gallery</span>
+			)}
 			<Actions cancelHref="/personae" />
 		</form>
 	);
@@ -442,6 +512,7 @@ export function ShowForm({
 	value,
 	errors,
 	isEdit,
+	locked = false,
 	personaOptions,
 	themeKeys = [],
 }: {
@@ -449,6 +520,7 @@ export function ShowForm({
 	value: Partial<ShowInput> | Vals;
 	errors: Errs;
 	isEdit: boolean;
+	locked?: boolean;
 	personaOptions: { key: string; name: string }[];
 	themeKeys?: string[];
 }) {
@@ -460,17 +532,23 @@ export function ShowForm({
 		wordsPerEpisode: split.wordsPerEpisode,
 		targetSeconds: split.targetSeconds,
 	};
-	return (
-		<form method="post" action={action} class="def">
-			<Err errors={errors} name="_" />
-			<Text name="key" label="key" value={v} errors={errors} readonly={isEdit} />
-			<Text name="channelId" label="channel id" value={v} errors={errors} />
-			<CheckGroup name="platforms" label="platforms" value={v} errors={errors} options={PLATFORMS} />
-			<ThemeField value={v} errors={errors} themeKeys={themeKeys} />
-			<Num name="themeVolume" label="theme volume (0–1)" value={v} errors={errors} />
-			<Select name="satisfyingVideoCategory" label="satisfying video category" value={v} errors={errors} options={["satisfying", "gameplay", "america"]} />
-			<Num name="endPaddingDurationMs" label="end padding (ms)" value={v} errors={errors} />
-			<Text name="ytCategoryCode" label="YouTube category code" value={v} errors={errors} />
+	const rosterKeys = Array.isArray((v as Vals).rosterKeys)
+		? ((v as Vals).rosterKeys as unknown as string[])
+		: [];
+	// Prose, prompt, cast and split are what the episode manifest is derived from,
+	// so they're shown read-only once the show is locked; the route also re-grafts
+	// the stored values on submit, so nothing here can desync the manifest.
+	const breakdownInputs = locked ? (
+		<div class="ro">
+			<p class="hint">🔒 breakdown inputs are locked — reopen the show to edit</p>
+			<label><span>max cast per episode</span><div>{s(v.maxCastPerEpisode)}</div></label>
+			<label><span>split</span><div>{JSON.stringify(v.split ?? splitVals)}</div></label>
+			<label><span>roster</span><div>{rosterKeys.join(", ") || "—"}</div></label>
+			<label><span>prompt</span><pre>{s(v.prompt)}</pre></label>
+			<label><span>prose</span><pre>{s(v.prose)}</pre></label>
+		</div>
+	) : (
+		<>
 			<Num name="maxCastPerEpisode" label="max cast per episode" value={v} errors={errors} />
 			<Select name="splitType" label="split type" value={splitVals} errors={errors} options={["episodeCount", "wordBudget", "length"]} />
 			<Num name="count" label="split: episode count" value={splitVals} errors={errors} />
@@ -486,6 +564,20 @@ export function ShowForm({
 			/>
 			<Area name="prompt" label="prompt (tone / dynamics)" value={v} errors={errors} rows={4} />
 			<Area name="prose" label="prose (the long script to break into episodes)" value={v} errors={errors} rows={10} />
+		</>
+	);
+	return (
+		<form method="post" action={action} class="def">
+			<Err errors={errors} name="_" />
+			<Text name="key" label="key" value={v} errors={errors} readonly={isEdit} />
+			<Text name="channelId" label="channel id" value={v} errors={errors} />
+			<CheckGroup name="platforms" label="platforms" value={v} errors={errors} options={PLATFORMS} />
+			<ThemeField value={v} errors={errors} themeKeys={themeKeys} />
+			<Num name="themeVolume" label="theme volume (0–1)" value={v} errors={errors} />
+			<Select name="satisfyingVideoCategory" label="satisfying video category" value={v} errors={errors} options={["satisfying", "gameplay", "america"]} />
+			<Num name="endPaddingDurationMs" label="end padding (ms)" value={v} errors={errors} />
+			<YtCategoryField value={v} errors={errors} />
+			{breakdownInputs}
 			<Actions cancelHref="/shows" />
 		</form>
 	);
@@ -626,22 +718,25 @@ form.def textarea { font-family: ui-monospace, monospace; white-space: pre; }
 .checkgroup { display: flex; flex-wrap: wrap; gap: .75rem; }
 .actions { display: flex; gap: 1rem; align-items: center; margin-top: .5rem; }
 .err { color: #c0392b; font-size: .8rem; }
+.hint { font-size: .8rem; opacity: .7; }
+.ro { display: flex; flex-direction: column; gap: .9rem; border: 1px dashed #8886;
+	border-radius: 6px; padding: .75rem; opacity: .85; }
+.ro label > span:first-child { font-size: .8rem; opacity: .85; }
+.ro pre { margin: 0; max-height: 14rem; overflow: auto; white-space: pre-wrap;
+	font-family: ui-monospace, monospace; font-size: .85rem; }
+.pocket-custom { display: flex; flex-direction: column; gap: .4rem; }
 .stances { display: flex; flex-direction: column; gap: .5rem; }
 .stances-label { font-size: .8rem; opacity: .85; }
-#stances-list { display: flex; flex-direction: column; gap: .5rem; }
-.stance-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
-	border: 1px solid #8884; border-radius: 6px; padding: .5rem; }
-.stance-row input[name^="stance_name"] { width: 11rem; }
-.stance-row select { width: auto; }
-.stance-png { display: inline-flex; align-items: center; gap: .4rem; }
-.stance-file { width: auto; font-size: .8rem; }
-.stance-prev { height: 56px; width: auto; max-width: 56px; object-fit: contain;
-	border: 1px solid #8884; border-radius: 4px; background: #8881;
-	cursor: zoom-in; transition: transform .15s ease; }
-.stance-prev:hover { transform: scale(4.5); transform-origin: left center;
-	position: relative; z-index: 10; }
-.stance-del { margin-left: auto; color: #c0392b; }
-#stance-add { align-self: flex-start; }
+.stance-grid { display: grid; gap: .9rem; margin-top: .5rem;
+	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.stance-card { display: flex; flex-direction: column; gap: .35rem;
+	border: 1px solid #8884; border-radius: 8px; padding: .5rem; }
+.stance-card img { width: 100%; aspect-ratio: 1; object-fit: contain;
+	background: #8881; border-radius: 6px; }
+.stance-card-meta { display: flex; justify-content: space-between; align-items: baseline; gap: .4rem; }
+.stance-card .actions { gap: .9rem; margin-top: auto; padding-top: .35rem;
+	border-top: 1px solid #8883; }
+.stance-card .actions button.linkbtn { color: #c0392b; }
 .media-prev { max-width: 320px; border: 1px solid #8884; border-radius: 4px; }
 audio { width: 100%; max-width: 320px; }
 `;

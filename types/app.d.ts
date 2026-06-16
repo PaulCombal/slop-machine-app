@@ -12,16 +12,28 @@ type PexelsVideoFile = {
 	fps: number | null;
 };
 
+export type Slot = "far-left" | "left" | "center" | "right" | "far-right";
+
+export type Appearance = {
+	personaId: string;
+	stance: string;
+	slot?: Slot;
+	/** Explicit 0..1 ratio of width; overrides slot (single-speaker flows). */
+	posX?: number;
+	isEntrance?: boolean;
+	mirror?: boolean;
+	animations?: AnimationSet;
+};
+
 export type ScriptSentence = {
+	/** The speaker; also present in `appearances`. */
 	personaId?: string;
+	appearances: Appearance[];
 	sentence: string;
 	stance: string;
 	illustration: string;
 	illustrationVideo?: PexelsVideoFile;
 	wordsAlignment: {start: number | null | undefined; end: number | undefined; text: string;}[];
-	posXRange: number;
-	posXOffset: number;
-	animations?: AnimationSet;
 };
 
 export type OutputConfig = {

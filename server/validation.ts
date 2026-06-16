@@ -18,16 +18,27 @@ export const SATISFYING_CATEGORIES = [
 ] as const;
 const SATISFYING = z.enum(SATISFYING_CATEGORIES);
 
+/**
+ * A safe path segment: no slashes, dots or traversal — anything concatenated
+ * into an S3 key must pass this so it can't address objects outside its prefix.
+ */
+export const SAFE_SEGMENT_RE = /^[A-Za-z0-9_-]+$/;
+export const isSafeSegment = (s: string): boolean => SAFE_SEGMENT_RE.test(s);
+
 /** A logical key/id: stable, URL-safe, used in scripts and job payloads. */
 const key = z
 	.string()
 	.trim()
 	.min(1)
 	.max(64)
-	.regex(/^[A-Za-z0-9_-]+$/, "letters, digits, _ or - only");
+	.regex(SAFE_SEGMENT_RE, "letters, digits, _ or - only");
 
 const stanceSchema = z
-	.object({ name: z.string().trim().min(1) })
+	.object({
+		// Used as an S3 key segment (personae/<assetId>/<name>.png), so charset-locked.
+		name: z.string().trim().min(1).regex(SAFE_SEGMENT_RE, "letters, digits, _ or - only"),
+		facing: z.enum(["left", "right", "camera"]).default("camera"),
+	})
 	.passthrough();
 
 export const personaSchema = z.object({
@@ -35,6 +46,8 @@ export const personaSchema = z.object({
 	assetId: z
 		.string()
 		.trim()
+		// Becomes an S3 key segment (personae/<assetId>/…); allow blank (→ key) or a safe segment.
+		.regex(/^[A-Za-z0-9_-]*$/, "letters, digits, _ or - only")
 		.optional()
 		.transform((v) => (v && v.length ? v : null)),
 	personaName: z.string().trim().min(1),
@@ -53,6 +66,7 @@ export const personaSchema = z.object({
 	posXOffset: z.coerce.number(),
 	groupPosXRange: z.coerce.number(),
 	groupPosXOffset: z.coerce.number(),
+	mirrorable: z.boolean().default(false),
 	newsRegion: z.string().trim().default(""),
 	newsTopics: z.array(z.enum(NEWS_CATEGORIES)).default([]),
 	ytCategoryCode: z.string().trim().default(""),
@@ -60,7 +74,10 @@ export const personaSchema = z.object({
 	promptVideoMeta: z.string().default(""),
 	promptVideoMetaGivenNewsTmpl: z.string().default(""),
 	promptScriptGuidelinesTmpl: z.string().default(""),
-	stances: z.array(stanceSchema).min(1, "at least one stance is required"),
+	// Default image prompt for this persona's stances (managed on the gallery).
+	stanceDefaultPrompt: z.string().default(""),
+	// Stances are managed on the dedicated stance gallery, not the persona form.
+	stances: z.array(stanceSchema).default([]),
 });
 
 export const groupSchema = z.object({
@@ -103,7 +120,9 @@ export const showSchema = z.object({
 	satisfyingVideoCategory: SATISFYING,
 	endPaddingDurationMs: z.coerce.number().int().min(0),
 	ytCategoryCode: z.string().trim().default(""),
-	rosterKeys: z.array(key).min(1, "a show needs at least one persona in its roster"),
+	// Roster may be empty at create/edit time (so you can build a show, then use
+	// the persona generator); breaking it into episodes is what requires ≥1 persona.
+	rosterKeys: z.array(key).default([]),
 });
 
 export const mediaSchema = z.object({

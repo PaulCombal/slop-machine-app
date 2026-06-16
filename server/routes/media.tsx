@@ -2,7 +2,12 @@ import { Hono } from "hono";
 import { currentOwner } from "../currentOwner.ts";
 import { type Body, str } from "../formBody.ts";
 import { type MediaWrite, mediaRepo } from "../../repositories/media.ts";
-import { SATISFYING_CATEGORIES, fieldErrors, mediaSchema } from "../validation.ts";
+import {
+	SATISFYING_CATEGORIES,
+	fieldErrors,
+	isSafeSegment,
+	mediaSchema,
+} from "../validation.ts";
 import { MediaForm, type MediaKind } from "../views/forms.tsx";
 import { Layout } from "../views/layout.tsx";
 
@@ -163,6 +168,7 @@ export function createMediaRoutes(desc: MediaKind): Hono {
 	r.get(`${desc.base}/:key/edit`, async (c) => {
 		const owner = await currentOwner(c);
 		const key = c.req.param("key");
+		if (!isSafeSegment(key)) return c.body(null, 404);
 		const row = await mediaRepo.get(owner.id, desc.kind, key);
 		if (!row) {
 			return c.html(
@@ -195,6 +201,7 @@ export function createMediaRoutes(desc: MediaKind): Hono {
 	r.post(`${desc.base}/:key`, async (c) => {
 		const owner = await currentOwner(c);
 		const key = c.req.param("key");
+		if (!isSafeSegment(key)) return c.body(null, 404);
 		const body = await c.req.parseBody();
 		const { raw, write, error } = parse(body);
 		const has = await Bun.s3.exists(s3Key(key)).catch(() => false);
@@ -219,6 +226,7 @@ export function createMediaRoutes(desc: MediaKind): Hono {
 	r.post(`${desc.base}/:key/delete`, async (c) => {
 		const owner = await currentOwner(c);
 		const key = c.req.param("key");
+		if (!isSafeSegment(key)) return c.body(null, 404);
 		await mediaRepo.delete(owner.id, desc.kind, key);
 		await Bun.s3
 			.file(s3Key(key))
@@ -231,6 +239,7 @@ export function createMediaRoutes(desc: MediaKind): Hono {
 	r.get(`${desc.base}/:key/file`, async (c) => {
 		await currentOwner(c);
 		const key = c.req.param("key");
+		if (!isSafeSegment(key)) return c.body(null, 404);
 		try {
 			const buf = await Bun.s3.file(s3Key(key)).arrayBuffer();
 			return c.body(buf, 200, {

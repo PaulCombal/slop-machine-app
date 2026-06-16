@@ -2,7 +2,7 @@ import { episodeGroupFromShow, getShow, type ShowConfig } from "../show.mts";
 import { loadManifest } from "./seriesManifest.ts";
 import {
 	addIllustrationLink,
-	addPersonaPositionToSentences,
+	finalizeAppearances,
 } from "../steps/generate_script.mts";
 import {
 	compileAndSaveVideoConfig,
@@ -70,17 +70,22 @@ export async function prepareEpisodeAssets(
 	// the Pexels search; the script itself already lives in the manifest.
 	const plan = await loadOrCreatePlan<EpisodeAssetPlan>(folder, async () => {
 		const seed = Math.random();
-		const sentences = episode.sentences.map(
-			(s): ScriptSentence => ({
-				...s,
+		const sentences = episode.sentences.map((s): ScriptSentence => {
+			const speakerStance =
+				s.appearances.find((a) => a.personaId === s.speakerId)?.stance ??
+				s.appearances[0]!.stance;
+			return {
+				personaId: s.speakerId,
+				appearances: s.appearances.map((a) => ({ ...a })),
+				sentence: s.sentence,
+				stance: speakerStance,
+				illustration: s.illustration,
 				wordsAlignment: [],
-				posXRange: 0,
-				posXOffset: 0,
-			}),
-		);
+			};
+		});
 
 		await addIllustrationLink(sentences);
-		addPersonaPositionToSentences(sentences, group);
+		finalizeAppearances(sentences);
 
 		return { seed, topic: episodePlanToTopic(episode, show), sentences };
 	});

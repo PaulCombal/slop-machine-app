@@ -18,3 +18,11 @@ export async function saveManifest(manifest: SeriesManifest): Promise<void> {
 		JSON.stringify(manifest, null, 2),
 	);
 }
+
+/** Drop a show's episode manifest (e.g. when reopening it for editing). */
+export async function deleteManifest(showId: string): Promise<void> {
+	await Bun.s3
+		.file(manifestKey(showId))
+		.delete()
+		.catch(() => {});
+}

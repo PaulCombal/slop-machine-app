@@ -7,6 +7,7 @@ export const techguy: PersonaConfig = {
 	posXOffset: 0.3,
 	groupPosXRange: 0.2,
 	groupPosXOffset: 0.6,
+	mirrorable: false,
 	ttsProvider: 'pocket',
 	elevenLabsVoiceId: "cgSgspJ2msm6clMCkdW9",
 	kokoroVoiceId: "am_santa",

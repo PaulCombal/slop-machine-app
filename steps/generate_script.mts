@@ -1,5 +1,5 @@
 import myPexelsClient from "../clients/pexels.mts";
-import type { ScriptSentence } from "../types/app";
+import type { ScriptSentence, Slot } from "../types/app";
 import type { PersonaConfig } from "../personae.mts";
 import {promptLlmObject} from "../utils/llm.mts";
 import {z} from "zod";
@@ -15,8 +15,7 @@ function dummy(): ScriptSentence[] {
 			illustration: "Microphone",
 			wordsAlignment: [],
 			personaId: "lois",
-			posXRange: 0.2,
-			posXOffset: 0.7,
+			appearances: [{ personaId: "lois", stance: "standing", posX: 0.7 }],
 		},
 		{
 			sentence:
@@ -25,9 +24,9 @@ function dummy(): ScriptSentence[] {
 			illustration: "clock",
 			wordsAlignment: [],
 			personaId: "peter",
-			posXRange: 0.2,
-			posXOffset: 0.3,
-			animations: {in: {preset: "shake"}},
+			appearances: [
+				{ personaId: "peter", stance: "talking", posX: 0.3, animations: {in: {preset: "shake"}} },
+			],
 		},
 	];
 }
@@ -71,33 +70,59 @@ export async function addIllustrationLink(sentences: ScriptSentence[]) {
 	}
 }
 
-function addPersonaPosition(
-	sentence: ScriptSentence,
-	personaGroup: PersonaGroupConfig,
-) {
-	const persona = personaGroup.personae.find(
-		(p) => p.id === sentence.personaId,
-	);
-	if (!persona) {
-		console.log('Personae in this group: ', personaGroup.personae)
-		throw new Error("Persona not found: " + sentence.personaId);
-	}
+function seededPosX(range: number, offset: number): number {
+	return Math.min(0.98, Math.max(0.02, offset + Math.random() * range));
+}
 
-	if (personaGroup.personae.length > 1) {
-		sentence.posXRange = persona.groupPosXRange;
-		sentence.posXOffset = persona.groupPosXOffset;
-	} else {
-		sentence.posXRange = persona.posXRange;
-		sentence.posXOffset = persona.posXOffset;
-	}
+function setSpeakerAppearance(
+	sentence: ScriptSentence,
+	persona: PersonaConfig,
+	multi: boolean,
+) {
+	const range = multi ? persona.groupPosXRange : persona.posXRange;
+	const offset = multi ? persona.groupPosXOffset : persona.posXOffset;
+	sentence.appearances = [
+		{
+			personaId: persona.id,
+			stance: sentence.stance,
+			posX: seededPosX(range, offset),
+		},
+	];
 }
 
 export function addPersonaPositionToSentences(
 	sentences: ScriptSentence[],
 	personaGroup: PersonaGroupConfig,
 ) {
+	const multi = personaGroup.personae.length > 1;
 	for (const sentence of sentences) {
-		addPersonaPosition(sentence, personaGroup);
+		const persona = personaGroup.personae.find(
+			(p) => p.id === sentence.personaId,
+		);
+		if (!persona) {
+			console.log('Personae in this group: ', personaGroup.personae)
+			throw new Error("Persona not found: " + sentence.personaId);
+		}
+		setSpeakerAppearance(sentence, persona, multi);
+	}
+}
+
+// Seat-lock each persona to its first slot for the episode, and flag the first
+// line it appears on so the entrance animation only plays then.
+export function finalizeAppearances(sentences: ScriptSentence[]) {
+	const seat = new Map<string, Slot>();
+	let prev = new Set<string>();
+	for (const sentence of sentences) {
+		const present = new Set<string>();
+		for (const app of sentence.appearances) {
+			if (app.slot) {
+				if (!seat.has(app.personaId)) seat.set(app.personaId, app.slot);
+				app.slot = seat.get(app.personaId)!;
+			}
+			app.isEntrance = !prev.has(app.personaId);
+			present.add(app.personaId);
+		}
+		prev = present;
 	}
 }
 
@@ -181,8 +206,7 @@ JSON Structure:
 
 	for (const sentence of sentences) {
 		sentence.personaId = persona.id;
-		sentence.posXOffset = persona.posXOffset;
-		sentence.posXRange = persona.posXRange;
+		setSpeakerAppearance(sentence, persona, false);
 	}
 
 	await addIllustrationLink(sentences);

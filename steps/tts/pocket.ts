@@ -1,9 +1,24 @@
 import type {ScriptSentence} from "../../types/app";
 import type {PersonaConfig} from "../../personae.mts";
+import {Client, handle_file} from "@gradio/client";
 import {forceAlign, transcribeAudio} from "./transcriber.ts";
 
-const URL = "https://hadadxyz-pocket-tts-hf-cpu-optimized.hf.space/v1/audio/speech";
-const URL_CLONE = "https://hadadxyz-pocket-tts-hf-cpu-optimized.hf.space/v1/audio/speech/clone";
+// FLODARELTIH's pocket-tts Space (preset + voice cloning). Override with
+// POCKET_TTS_URL (a "owner/space" reference or a full URL) to use your own.
+const APP_REFERENCE =
+  process.env.POCKET_TTS_URL ?? "FLODARELTIH/pocket-tts-hf-cpu-optimized";
+
+const VOICE_MODE_PRESET = "Preset Voices";
+const VOICE_MODE_CLONE = "Voice Cloning";
+
+// Generation knobs passed alongside the voice selection.
+const MODEL_VARIANT = "b6369a24";
+const LSD_DECODE_STEPS = 1;
+const TEMPERATURE = 0.7;
+const NOISE_CLAMP = 0;
+const EOS_THRESHOLD = -4;
+const FRAMES_AFTER_EOS = 10;
+const ENABLE_CUSTOM_FRAMES = false;
 
 export async function sentenceToSpeechPocket(
   sentence: ScriptSentence,
@@ -28,18 +43,15 @@ async function cloneVoice(
     persona.pocketUseVoiceSample = await Bun.s3.file('personae/' + (persona.assetId ?? persona.id) + '/voiceSample.mp3').arrayBuffer();
   }
 
-  const formData = new FormData();
+  // The Space validates by extension, so the upload needs a named file.
+  const sample = new File([persona.pocketUseVoiceSample], "voiceSample.mp3", {
+    type: "audio/mpeg",
+  });
 
-  formData.append('input_text', sentence.sentence);
-  formData.append('response_format', 'wav');
-  formData.append('temperature', '0.7');
-  formData.append('lsd_decode_steps', '1');
-  formData.append('eos_threshold', '-4');
-  formData.append('voice_file', new Blob([persona.pocketUseVoiceSample]), 'voiceSample.mp3');
-
-  const response = await fetch(URL_CLONE, {
-    method: "POST",
-    body: formData
+  const response = await generateSpeech(sentence.sentence, {
+    voice_mode_selection: VOICE_MODE_CLONE,
+    voice_preset_selection: persona.pocketVoiceId || "alba",
+    voice_clone_audio_file: handle_file(sample),
   });
 
   await alignAndCleanAndSave(sentenceId, response, sentence, folderName);
@@ -51,23 +63,42 @@ async function presetVoice(
   sentenceId: string,
   persona: PersonaConfig,
 ) {
-  const payload = {
-    model: "pocket-tts",
-    input: sentence.sentence,
-    voice: persona.pocketVoiceId,
-    temperature: 0.7,
-    lsd_decode_steps: 1,
-    eos_threshold: -4,
-    // frames_after_eos: 10 // unset = auto
-  };
-
-  const response = await fetch(URL, {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(payload),
+  const response = await generateSpeech(sentence.sentence, {
+    voice_mode_selection: VOICE_MODE_PRESET,
+    voice_preset_selection: persona.pocketVoiceId,
+    voice_clone_audio_file: null,
   });
 
   await alignAndCleanAndSave(sentenceId, response, sentence, folderName);
+}
+
+/** Call the Gradio speech endpoint and fetch the produced audio file. */
+async function generateSpeech(
+  text: string,
+  voice: Record<string, unknown>,
+): Promise<Response> {
+  const client = await Client.connect(APP_REFERENCE);
+  const result = await client.predict<Record<string, any>>(
+    "/perform_speech_generation",
+    {
+      text_input: text,
+      ...voice,
+      model_variant: MODEL_VARIANT,
+      lsd_decode_steps: LSD_DECODE_STEPS,
+      temperature: TEMPERATURE,
+      noise_clamp: NOISE_CLAMP,
+      eos_threshold: EOS_THRESHOLD,
+      frames_after_eos: FRAMES_AFTER_EOS,
+      enable_custom_frames: ENABLE_CUSTOM_FRAMES,
+    },
+  );
+
+  const url = result.data[0]?.url;
+  if (!url) {
+    throw new Error('Failed to TTS');
+  }
+
+  return await fetch(url);
 }
 
 async function alignAndCleanAndSave(sentenceId: string, response: Response, sentence: ScriptSentence, folderName: string) {

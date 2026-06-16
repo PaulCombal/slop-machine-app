@@ -58,14 +58,27 @@ export async function compileAndSaveVideoConfig(
 ) {
 	// Validate sentences
 	for (const sentence of sentences) {
-		const persona = personaGroup.personae.find(p => p.id === sentence.personaId);
-
-		if (!persona) {
-			throw new Error('persona not found in group')
+		if (!sentence.appearances?.length) {
+			throw new Error('Sentence has no appearances')
 		}
 
-		if (!persona.stances.some((s) => s.name === sentence.stance)) {
-			throw new Error('Sentence makes use of an unknown stance')
+		for (const app of sentence.appearances) {
+			const persona = personaGroup.personae.find(p => p.id === app.personaId);
+
+			if (!persona) {
+				throw new Error('persona not found in group: ' + app.personaId)
+			}
+
+			if (!persona.stances.some((s) => s.name === app.stance)) {
+				throw new Error('Appearance makes use of an unknown stance: ' + app.stance)
+			}
+		}
+
+		if (
+			sentence.personaId &&
+			!sentence.appearances.some((a) => a.personaId === sentence.personaId)
+		) {
+			throw new Error('Speaker not present in appearances: ' + sentence.personaId)
 		}
 
 		if (!sentence.wordsAlignment) {

@@ -7,6 +7,7 @@ export const razmo: PersonaConfig = {
 	posXOffset: 0.2,
 	groupPosXRange: 0.2,
 	groupPosXOffset: 0.6,
+	mirrorable: false,
 	ttsProvider: 'pocket',
 	elevenLabsVoiceId: "cgSgspJ2msm6clMCkdW9",
 	kokoroVoiceId: "af_jessica",
