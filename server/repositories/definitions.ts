@@ -464,7 +464,133 @@ export const definitionsRepo = {
 		if (res.count === 0) throw new DefinitionError({ key: "show not found" });
 		await publishInvalidate();
 	},
+
+	// ---- show locations (rooms) ----------------------------------------
+	// Owner-scoped via the parent show; not part of the registry cache, so these
+	// writes don't publishInvalidate. Phase 2 will wire the chosen assets into the
+	// render manifest.
+
+	/** All of a show's locations, in display order. Empty if the show is absent. */
+	async locations(owner: CurrentOwner, showKey: string): Promise<LocationRow[]> {
+		const rows = await sql`
+			select l.location_key, l.name, l.description, l.asset_kind, l.asset_ext, l.source
+			from show_locations l
+			join shows s on s.id = l.show_id
+			where s.user_id = ${owner.id} and s.show_key = ${showKey}
+			order by l.position, l.location_key
+		`;
+		return rows.map(toLocationRow);
+	},
+
+	/** A single location of a show, or undefined. */
+	async location(
+		owner: CurrentOwner,
+		showKey: string,
+		locKey: string,
+	): Promise<LocationRow | undefined> {
+		const rows = await sql`
+			select l.location_key, l.name, l.description, l.asset_kind, l.asset_ext, l.source
+			from show_locations l
+			join shows s on s.id = l.show_id
+			where s.user_id = ${owner.id} and s.show_key = ${showKey} and l.location_key = ${locKey}
+			limit 1
+		`;
+		return rows.length ? toLocationRow(rows[0]) : undefined;
+	},
+
+	/**
+	 * Insert a location for a show. Returns false (no-op) if one with that key
+	 * already exists, so the prose extractor can skip duplicates. Throws if the
+	 * show is missing.
+	 */
+	async addLocation(
+		owner: CurrentOwner,
+		showKey: string,
+		loc: { key: string; name: string; description: string },
+	): Promise<boolean> {
+		const showId = await showIdByKey(owner, showKey);
+		if (!showId) throw new DefinitionError({ key: "show not found" });
+		const rows = await sql`
+			insert into show_locations (show_id, location_key, name, description, position)
+			values (
+				${showId}, ${loc.key}, ${loc.name}, ${loc.description},
+				coalesce((select max(position) + 1 from show_locations where show_id = ${showId}), 0)
+			)
+			on conflict (show_id, location_key) do nothing
+			returning id
+		`;
+		return rows.length > 0;
+	},
+
+	/** Record the chosen background asset (kind/ext/source) for a location. */
+	async setLocationAsset(
+		owner: CurrentOwner,
+		showKey: string,
+		locKey: string,
+		asset: { kind: "image" | "video"; ext: string; source: string },
+	): Promise<void> {
+		const res = await sql`
+			update show_locations l set
+				asset_kind = ${asset.kind}, asset_ext = ${asset.ext}, source = ${asset.source}
+			from shows s
+			where l.show_id = s.id and s.user_id = ${owner.id}
+				and s.show_key = ${showKey} and l.location_key = ${locKey}
+		`;
+		if (res.count === 0) throw new DefinitionError({ key: "location not found" });
+	},
+
+	/** Delete a location (its S3 asset is removed by the route). */
+	async deleteLocation(
+		owner: CurrentOwner,
+		showKey: string,
+		locKey: string,
+	): Promise<void> {
+		await sql`
+			delete from show_locations l
+			using shows s
+			where l.show_id = s.id and s.user_id = ${owner.id}
+				and s.show_key = ${showKey} and l.location_key = ${locKey}
+		`;
+	},
 };
+
+export type LocationRow = {
+	key: string;
+	name: string;
+	description: string;
+	assetKind: "image" | "video" | null;
+	assetExt: string | null;
+	source: string | null;
+};
+
+function toLocationRow(r: {
+	location_key: string;
+	name: string;
+	description: string;
+	asset_kind: string | null;
+	asset_ext: string | null;
+	source: string | null;
+}): LocationRow {
+	return {
+		key: r.location_key,
+		name: r.name,
+		description: r.description,
+		assetKind: (r.asset_kind as "image" | "video" | null) ?? null,
+		assetExt: r.asset_ext,
+		source: r.source,
+	};
+}
+
+/** Resolve a show_key to its UUID id (owner-scoped), or null if absent. */
+async function showIdByKey(
+	owner: CurrentOwner,
+	showKey: string,
+): Promise<string | null> {
+	const rows = await sql`
+		select id from shows where user_id = ${owner.id} and show_key = ${showKey} limit 1
+	`;
+	return rows.length ? rows[0].id : null;
+}
 
 type StanceRow = { name: string; [k: string]: unknown };
 

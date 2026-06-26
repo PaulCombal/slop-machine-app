@@ -17,7 +17,14 @@ import {
 } from "../validation.ts";
 import { GroupForm, PersonaForm, ShowForm } from "../views/forms.tsx";
 import { StanceGallery, StanceStudio } from "../views/stanceStudio.tsx";
+import {
+	LocationGallery,
+	LocationStudio,
+	type PexelsPick,
+} from "../views/locationStudio.tsx";
 import { Layout } from "../views/layout.tsx";
+import { getPexelsClient } from "../../clients/pexels.mts";
+import { generateLocationsFromProse } from "../../steps/generate_locations.mts";
 import {
 	buildStancePrompt,
 	generateStanceImage,
@@ -1022,6 +1029,387 @@ function generatedPersonaInput(
 	};
 }
 
+// ---- Show locations (rooms) --------------------------------------------
+
+const LOCATION_CONTENT_TYPE: Record<string, string> = {
+	png: "image/png",
+	jpg: "image/jpeg",
+	jpeg: "image/jpeg",
+	webp: "image/webp",
+	gif: "image/gif",
+	mp4: "video/mp4",
+	webm: "video/webm",
+	mov: "video/quicktime",
+};
+const locationContentType = (ext: string): string =>
+	LOCATION_CONTENT_TYPE[ext.toLowerCase()] ?? "application/octet-stream";
+
+/** Background-oriented wrapper so room art is an empty set, not a PNGTuber. */
+function buildLocationPrompt(desc: string): string {
+	return (
+		"A wide establishing background shot of an empty place with NO people and no characters, " +
+		"cinematic, suitable as a video backdrop. Setting: " +
+		desc
+	);
+}
+
+/** Resolve the show + assert its key/location key are S3-safe; null on any miss. */
+async function locationCtx(c: Context) {
+	const owner = await currentOwner(c);
+	const showKey = c.req.param("id") ?? "";
+	const locKey = c.req.param("loc") ?? "";
+	if (!isSafeSegment(showKey) || !isSafeSegment(locKey)) return null;
+	return { owner, showKey, locKey };
+}
+
+/**
+ * Write a location's chosen background to S3, drop the previous asset if its
+ * extension differs, and record the new asset metadata. Returns false if the
+ * location row is missing.
+ */
+async function storeLocationAsset(
+	owner: Awaited<ReturnType<typeof currentOwner>>,
+	showKey: string,
+	locKey: string,
+	bytes: Uint8Array | File,
+	kind: "image" | "video",
+	ext: string,
+	source: string,
+): Promise<boolean> {
+	const prev = await definitionsRepo.location(owner, showKey, locKey);
+	if (!prev) return false;
+	await Bun.s3.write(`locations/${showKey}/${locKey}.${ext}`, bytes, {
+		type: locationContentType(ext),
+	});
+	if (prev.assetExt && prev.assetExt !== ext) {
+		await Bun.s3.file(`locations/${showKey}/${locKey}.${prev.assetExt}`).delete().catch(() => {});
+	}
+	await definitionsRepo.setLocationAsset(owner, showKey, locKey, { kind, ext, source });
+	return true;
+}
+
+// Read the prose and draft one location per distinct place (LLM), adding them
+// to the show. Assets are picked per-room afterwards.
+definitions.post("/shows/:id/generate-locations", async (c) => {
+	const owner = await currentOwner(c);
+	const id = c.req.param("id");
+	const show = await definitionsRepo.show(owner, id);
+	if (!show) return c.html(NotFound("show"), 404);
+
+	let locations: Awaited<ReturnType<typeof generateLocationsFromProse>>;
+	try {
+		locations = await generateLocationsFromProse(show.prose, show.prompt);
+	} catch (e) {
+		console.error("location generation failed:", e);
+		return c.redirect(`/shows/${id}?locations=error`);
+	}
+
+	let created = 0;
+	let skipped = 0;
+	for (const loc of locations) {
+		try {
+			(await definitionsRepo.addLocation(owner, id, loc)) ? created++ : skipped++;
+		} catch (e) {
+			console.error(`failed to add location ${loc.key}:`, e);
+			skipped++;
+		}
+	}
+	return c.redirect(`/shows/${id}?locations=${created}&locskipped=${skipped}`);
+});
+
+// Gallery of a show's locations.
+definitions.get("/shows/:id/locations", async (c) => {
+	const owner = await currentOwner(c);
+	const id = c.req.param("id");
+	if (!(await definitionsRepo.show(owner, id))) return c.html(NotFound("show"), 404);
+	const locations = await definitionsRepo.locations(owner, id);
+	return c.html(
+		<Layout title={`Locations · ${id}`}>
+			<LocationGallery
+				showKey={id}
+				locations={locations}
+				saved={c.req.query("saved")}
+				deleted={c.req.query("deleted")}
+			/>
+		</Layout>,
+	);
+});
+
+// Add a room manually.
+definitions.post("/shows/:id/locations", async (c) => {
+	const owner = await currentOwner(c);
+	const id = c.req.param("id");
+	if (!(await definitionsRepo.show(owner, id))) return c.html(NotFound("show"), 404);
+	const body = await c.req.parseBody();
+	const key = str(body, "key").trim();
+	const name = str(body, "name").trim();
+	if (!isSafeSegment(key)) {
+		return c.redirect(`/shows/${id}/locations?saved=`);
+	}
+	try {
+		await definitionsRepo.addLocation(owner, id, { key, name: name || key, description: "" });
+	} catch (e) {
+		console.error("add location failed:", e);
+	}
+	return c.redirect(`/shows/${id}/locations?saved=${encodeURIComponent(key)}`);
+});
+
+// Per-room editor (optionally running a Pexels search via ?pq=&pkind=).
+definitions.get("/shows/:id/locations/:loc/edit", async (c) => {
+	const ctx = await locationCtx(c);
+	if (!ctx) return c.html(NotFound("location"), 404);
+	const loc = await definitionsRepo.location(ctx.owner, ctx.showKey, ctx.locKey);
+	if (!loc) return c.html(NotFound("location"), 404);
+
+	const pq = (c.req.query("pq") ?? "").trim();
+	const pkind: "image" | "video" = c.req.query("pkind") === "image" ? "image" : "video";
+	let pexelsResults: PexelsPick[] | undefined;
+	let pexelsError: string | undefined;
+	if (pq) {
+		try {
+			pexelsResults = await searchPexels(pq, pkind);
+		} catch (e) {
+			console.error("pexels search failed:", e);
+			pexelsError = "Pexels search failed — try again.";
+		}
+	}
+
+	return c.html(
+		<Layout title={`Location · ${loc.name || loc.key}`}>
+			<LocationStudio
+				showKey={ctx.showKey}
+				locKey={loc.key}
+				name={loc.name}
+				description={loc.description}
+				asset={loc.assetKind ? { kind: loc.assetKind, ext: loc.assetExt ?? "" } : null}
+				prompt={loc.description}
+				pexelsQuery={pq}
+				pexelsKind={pkind}
+				pexelsResults={pexelsResults}
+				pexelsError={pexelsError}
+			/>
+		</Layout>,
+	);
+});
+
+// Adopt a chosen Pexels result: download it server-side and store it.
+definitions.post("/shows/:id/locations/:loc/pexels", async (c) => {
+	const ctx = await locationCtx(c);
+	if (!ctx) return c.html(NotFound("location"), 404);
+	const body = await c.req.parseBody();
+	const url = str(body, "url").trim();
+	const kind: "image" | "video" = str(body, "kind") === "image" ? "image" : "video";
+	const ext = str(body, "ext").trim().toLowerCase();
+	if (!isPexelsUrl(url) || !isSafeSegment(ext)) {
+		return c.redirect(`/shows/${ctx.showKey}/locations/${ctx.locKey}/edit`);
+	}
+	try {
+		const resp = await fetch(url);
+		if (!resp.ok) throw new Error(`pexels download ${resp.status}`);
+		const bytes = new Uint8Array(await resp.arrayBuffer());
+		const ok = await storeLocationAsset(ctx.owner, ctx.showKey, ctx.locKey, bytes, kind, ext, "pexels");
+		if (!ok) return c.html(NotFound("location"), 404);
+	} catch (e) {
+		console.error("pexels adopt failed:", e);
+		return c.redirect(`/shows/${ctx.showKey}/locations/${ctx.locKey}/edit?pq=&pkind=${kind}`);
+	}
+	return c.redirect(`/shows/${ctx.showKey}/locations?saved=${encodeURIComponent(ctx.locKey)}`);
+});
+
+// Upload a background (image or video) directly.
+definitions.post("/shows/:id/locations/:loc/upload", async (c) => {
+	const ctx = await locationCtx(c);
+	if (!ctx) return c.html(NotFound("location"), 404);
+	const body = await c.req.parseBody({ all: true });
+	const file = body["file"];
+	if (!(file instanceof File) || file.size === 0) {
+		return c.redirect(`/shows/${ctx.showKey}/locations/${ctx.locKey}/edit`);
+	}
+	const kind: "image" | "video" = file.type.startsWith("video/") ? "video" : "image";
+	const ext = extFromFile(file);
+	if (!isSafeSegment(ext)) {
+		return c.redirect(`/shows/${ctx.showKey}/locations/${ctx.locKey}/edit`);
+	}
+	const ok = await storeLocationAsset(ctx.owner, ctx.showKey, ctx.locKey, file, kind, ext, "upload");
+	if (!ok) return c.html(NotFound("location"), 404);
+	return c.redirect(`/shows/${ctx.showKey}/locations?saved=${encodeURIComponent(ctx.locKey)}`);
+});
+
+// Generate a still background with AI → draft preview.
+definitions.post("/shows/:id/locations/:loc/generate", async (c) => {
+	const ctx = await locationCtx(c);
+	if (!ctx) return c.html(NotFound("location"), 404);
+	const loc = await definitionsRepo.location(ctx.owner, ctx.showKey, ctx.locKey);
+	if (!loc) return c.html(NotFound("location"), 404);
+	const body = await c.req.parseBody();
+	const prompt = str(body, "prompt").trim();
+	const modelInput = str(body, "model").trim();
+	const model: StanceModel = (STANCE_MODELS.some((m) => m.id === modelInput)
+		? modelInput
+		: "flux2") as StanceModel;
+
+	const render = (props: { draftToken?: string; error?: string }) =>
+		c.html(
+			<Layout title={`Location · ${loc.name || loc.key}`}>
+				<LocationStudio
+					showKey={ctx.showKey}
+					locKey={loc.key}
+					name={loc.name}
+					description={loc.description}
+					asset={loc.assetKind ? { kind: loc.assetKind, ext: loc.assetExt ?? "" } : null}
+					prompt={prompt}
+					model={model}
+					{...props}
+				/>
+			</Layout>,
+		);
+
+	if (!prompt) return render({ error: "Enter a prompt." });
+	let png: Uint8Array;
+	try {
+		png = await generateStanceImage(buildLocationPrompt(prompt), [], model);
+	} catch (e) {
+		console.error("location generation failed:", e);
+		return render({ error: "Generation failed: " + (e instanceof Error ? e.message : String(e)) });
+	}
+	const token = crypto.randomUUID();
+	await Bun.s3.write(`locations/${ctx.showKey}/_drafts/${token}.png`, png, { type: "image/png" });
+	return render({ draftToken: token });
+});
+
+// Stream an AI draft for preview.
+definitions.get("/shows/:id/locations/:loc/draft/:token/png", async (c) => {
+	const ctx = await locationCtx(c);
+	if (!ctx) return c.body(null, 404);
+	const token = c.req.param("token") ?? "";
+	if (!isSafeSegment(token)) return c.body(null, 404);
+	try {
+		const buf = await Bun.s3.file(`locations/${ctx.showKey}/_drafts/${token}.png`).arrayBuffer();
+		return c.body(buf, 200, { "content-type": "image/png", "cache-control": "no-store" });
+	} catch {
+		return c.body(null, 404);
+	}
+});
+
+// Adopt an AI draft as the location's background.
+definitions.post("/shows/:id/locations/:loc/save", async (c) => {
+	const ctx = await locationCtx(c);
+	if (!ctx) return c.html(NotFound("location"), 404);
+	const body = await c.req.parseBody();
+	const token = str(body, "token").trim();
+	if (!isSafeSegment(token)) {
+		return c.redirect(`/shows/${ctx.showKey}/locations/${ctx.locKey}/edit`);
+	}
+	const draftPath = `locations/${ctx.showKey}/_drafts/${token}.png`;
+	let bytes: Uint8Array;
+	try {
+		bytes = new Uint8Array(await Bun.s3.file(draftPath).arrayBuffer());
+	} catch {
+		return c.redirect(`/shows/${ctx.showKey}/locations/${ctx.locKey}/edit`);
+	}
+	const ok = await storeLocationAsset(ctx.owner, ctx.showKey, ctx.locKey, bytes, "image", "png", "ai");
+	if (!ok) return c.html(NotFound("location"), 404);
+	await Bun.s3.file(draftPath).delete().catch(() => {});
+	return c.redirect(`/shows/${ctx.showKey}/locations?saved=${encodeURIComponent(ctx.locKey)}`);
+});
+
+// Stream a location's chosen background from S3.
+definitions.get("/shows/:id/locations/:loc/asset", async (c) => {
+	const ctx = await locationCtx(c);
+	if (!ctx) return c.body(null, 404);
+	const loc = await definitionsRepo.location(ctx.owner, ctx.showKey, ctx.locKey);
+	if (!loc || !loc.assetKind || !loc.assetExt) return c.body(null, 404);
+	try {
+		const buf = await Bun.s3
+			.file(`locations/${ctx.showKey}/${ctx.locKey}.${loc.assetExt}`)
+			.arrayBuffer();
+		return c.body(buf, 200, {
+			"content-type": locationContentType(loc.assetExt),
+			"cache-control": "no-store",
+		});
+	} catch {
+		return c.body(null, 404);
+	}
+});
+
+// Delete a location and its background asset.
+definitions.post("/shows/:id/locations/:loc/delete", async (c) => {
+	const ctx = await locationCtx(c);
+	if (!ctx) return c.html(NotFound("location"), 404);
+	const loc = await definitionsRepo.location(ctx.owner, ctx.showKey, ctx.locKey);
+	if (loc?.assetExt) {
+		await Bun.s3.file(`locations/${ctx.showKey}/${ctx.locKey}.${loc.assetExt}`).delete().catch(() => {});
+	}
+	await definitionsRepo.deleteLocation(ctx.owner, ctx.showKey, ctx.locKey);
+	return c.redirect(`/shows/${ctx.showKey}/locations?deleted=${encodeURIComponent(ctx.locKey)}`);
+});
+
+/** True for an https URL hosted on pexels.com (guards the download-from-url POST). */
+function isPexelsUrl(u: string): boolean {
+	try {
+		const url = new URL(u);
+		return (
+			url.protocol === "https:" &&
+			(url.hostname === "pexels.com" || url.hostname.endsWith(".pexels.com"))
+		);
+	} catch {
+		return false;
+	}
+}
+
+/** Best-effort file extension from an upload's name/type, lowercased. */
+function extFromFile(file: File): string {
+	const fromName = file.name.includes(".") ? file.name.split(".").pop() ?? "" : "";
+	if (fromName) return fromName.toLowerCase();
+	const sub = file.type.split("/")[1] ?? "";
+	return sub === "jpeg" ? "jpg" : sub.toLowerCase();
+}
+
+/** Search Pexels for photos or videos and shape the hits for the picker grid. */
+async function searchPexels(
+	query: string,
+	kind: "image" | "video",
+): Promise<PexelsPick[]> {
+	const pexelsClient = getPexelsClient();
+	if (kind === "image") {
+		const res = await pexelsClient.photos.search({ query, per_page: 12 });
+		if (!("photos" in res)) throw new Error("pexels photo search failed");
+		return res.photos.map((p) => ({
+			thumb: p.src.medium,
+			big: p.src.large2x ?? p.src.large,
+			url: p.src.large2x ?? p.src.large,
+			ext: "jpg",
+			kind: "image" as const,
+			w: p.width,
+			h: p.height,
+			meetsMin: true, // stills have no minimum-resolution selection algorithm
+		}));
+	}
+	const res = await pexelsClient.videos.search({ query, per_page: 12 });
+	if (!("videos" in res)) throw new Error("pexels video search failed");
+	const picks: PexelsPick[] = [];
+	for (const v of res.videos) {
+		// Mirror the renderer's selection (addIllustrationLink): the smallest file
+		// that still clears 540×960, else fall back to the first available file.
+		const qualifying = v.video_files
+			.filter((f) => (f.width ?? 0) >= 540 && (f.height ?? 0) >= 960)
+			.sort((a, b) => (a.width ?? 0) - (b.width ?? 0))[0];
+		const file = qualifying ?? v.video_files[0];
+		if (!file?.link) continue;
+		picks.push({
+			thumb: v.image,
+			big: file.link, // the actual clip — opens/plays in a new tab
+			url: file.link,
+			ext: "mp4",
+			kind: "video" as const,
+			w: file.width ?? v.width,
+			h: file.height ?? v.height,
+			meetsMin: Boolean(qualifying),
+		});
+	}
+	return picks;
+}
+
 // Render a single episode now (no upload).
 definitions.post("/shows/:id/episodes/:index/render", async (c) => {
 	const owner = await currentOwner(c);
@@ -1180,6 +1568,16 @@ definitions.get("/shows/:id", async (c) => {
 						skipped && skipped !== "0" ? `, skipped ${skipped} already-existing` : ""
 					}. Open each one to draw its stances in the Stance Studio (they have placeholder art for now).`
 				: null;
+	const locations = c.req.query("locations");
+	const locSkipped = c.req.query("locskipped");
+	const locationsMsg =
+		locations === "error"
+			? "⚠️ Location generation failed — check the server logs."
+			: locations
+				? `✅ Found ${locations} location(s)${
+						locSkipped && locSkipped !== "0" ? `, skipped ${locSkipped} already-existing` : ""
+					}. Open “Manage locations” to pick a background for each.`
+				: null;
 	const action = c.req.query("action");
 	const epNo = c.req.query("episode");
 	const actionMsg =
@@ -1226,6 +1624,31 @@ definitions.get("/shows/:id", async (c) => {
 					{" "}
 					reads the prose, drafts a persona per character, and adds them to the
 					roster with placeholder art
+				</span>
+			</form>
+
+			<h2>Locations</h2>
+			{locationsMsg ? (
+				<p style={locations === "error" ? "color:#c0392b" : "color:#2e7d32"}>
+					{locationsMsg}
+				</p>
+			) : null}
+			<p>
+				<a href={`/shows/${s.id}/locations`}>Manage locations →</a>{" "}
+				<span style="font-size:.8rem;opacity:.7">
+					pick a background image or video per room
+				</span>
+			</p>
+			<form
+				method="post"
+				action={`/shows/${s.id}/generate-locations`}
+				style="margin:.5rem 0"
+				onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Finding locations…';return true;"
+			>
+				<button type="submit">Generate locations from prose</button>
+				<span style="font-size:.8rem;opacity:.7">
+					{" "}
+					reads the prose and lists the distinct places to set a background for
 				</span>
 			</form>
 

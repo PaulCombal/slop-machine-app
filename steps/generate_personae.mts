@@ -116,7 +116,7 @@ export async function writePlaceholderStances(
 // promptLlmObject has no retry, and the LLM (Gemini) intermittently returns a
 // retryable 503 under load — costly to lose a whole cast generation over, so
 // retry a few times with backoff before giving up.
-async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
 	let lastErr: unknown;
 	for (let i = 0; i < attempts; i++) {
 		try {
@@ -129,7 +129,7 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
 	throw lastErr;
 }
 
-function slugKey(raw: string): string {
+export function slugKey(raw: string): string {
 	const s = raw
 		.toLowerCase()
 		.replace(/[^a-z0-9_-]+/g, "-")

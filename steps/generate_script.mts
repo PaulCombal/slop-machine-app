@@ -1,4 +1,4 @@
-import myPexelsClient from "../clients/pexels.mts";
+import { getPexelsClient } from "../clients/pexels.mts";
 import type { ScriptSentence, Slot } from "../types/app";
 import type { PersonaConfig } from "../personae.mts";
 import {promptLlmObject} from "../utils/llm.mts";
@@ -34,6 +34,7 @@ function dummy(): ScriptSentence[] {
 export async function addIllustrationLink(sentences: ScriptSentence[]) {
 	const usedVideoIds = new Set<number>();
 
+	const myPexelsClient = getPexelsClient();
 	for (const sentence of sentences) {
 		const response = await myPexelsClient.videos.search({
 			query: sentence.illustration,
