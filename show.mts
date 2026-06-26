@@ -34,6 +34,20 @@ export type ShowStatus = "draft" | "breaking_down" | "in_production";
 
 export const isShowLocked = (s?: ShowStatus): boolean => !!s && s !== "draft";
 
+/**
+ * A named place a scene can happen in (kitchen, garden…). The chosen background
+ * lives in S3 at `locations/<showKey>/<key>.<assetExt>`; `assetKind` is unset
+ * until a background is picked. The breakdown tags each line with a location
+ * `key`, and the asset prep resolves it to that line's illustration slot.
+ */
+export type ShowLocation = {
+	key: string;
+	name: string;
+	description: string;
+	assetKind?: "image" | "video";
+	assetExt?: string;
+};
+
 export type ShowConfig = DistributionConfig & {
 	id: string;
 	/** Lifecycle state; controls whether the breakdown inputs are editable. */
@@ -44,6 +58,8 @@ export type ShowConfig = DistributionConfig & {
 	prompt?: string;
 	/** The full cast the writer may draw from. */
 	roster: PersonaConfig[];
+	/** Named places a scene can happen in, with their chosen backgrounds. */
+	locations: ShowLocation[];
 	split: SplitStrategy;
 	/** How many personae may appear on-screen in a single episode. */
 	maxCastPerEpisode: number;

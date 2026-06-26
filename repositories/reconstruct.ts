@@ -1,7 +1,7 @@
 import type { DistributionConfig } from "../distribution.mts";
 import type { PersonaGroupConfig } from "../persona_group.mts";
 import type { PersonaConfig } from "../personae.mts";
-import type { ShowConfig, SplitStrategy } from "../show.mts";
+import type { ShowConfig, ShowLocation, SplitStrategy } from "../show.mts";
 import {
 	renderScriptGuidelines,
 	renderVideoMetaGivenNews,
@@ -86,7 +86,11 @@ export function rowToGroupConfig(
 	};
 }
 
-export function rowToShowConfig(row: Row, roster: PersonaConfig[]): ShowConfig {
+export function rowToShowConfig(
+	row: Row,
+	roster: PersonaConfig[],
+	locationRows: Row[] = [],
+): ShowConfig {
 	return {
 		...distributionFromRow(row),
 		id: row.show_key,
@@ -94,8 +98,19 @@ export function rowToShowConfig(row: Row, roster: PersonaConfig[]): ShowConfig {
 		prose: row.prose,
 		prompt: row.prompt,
 		roster,
+		locations: locationRows.map(rowToShowLocation),
 		split: parseJson<SplitStrategy>(row.split),
 		maxCastPerEpisode: num(row.max_cast_per_episode),
 		ytCategoryCode: row.yt_category_code,
+	};
+}
+
+function rowToShowLocation(row: Row): ShowLocation {
+	return {
+		key: row.location_key,
+		name: row.name,
+		description: row.description,
+		assetKind: (row.asset_kind ?? undefined) as ShowLocation["assetKind"],
+		assetExt: row.asset_ext ?? undefined,
 	};
 }

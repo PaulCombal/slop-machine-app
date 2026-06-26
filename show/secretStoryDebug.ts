@@ -13,6 +13,8 @@ export const secretStoryDebug: ShowConfig = {
 	prompt:
 		"Write punchy reality-TV banter with cliffhangers. Each character keeps their personality. Build suspense across episodes; from episode 2 onward, open with a one-line recap and end on a hook.",
 	roster: [getSeedPersona("lois"), getSeedPersona("peter")],
+	// Locations are authored per-show via the web UI (not seeded in code).
+	locations: [],
 	split: { type: "episodeCount", count: 3 },
 	maxCastPerEpisode: 2,
 

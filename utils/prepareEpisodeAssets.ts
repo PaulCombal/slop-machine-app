@@ -80,9 +80,17 @@ export async function prepareEpisodeAssets(
 				sentence: s.sentence,
 				stance: speakerStance,
 				illustration: s.illustration,
+				locationKey: s.locationKey,
 				wordsAlignment: [],
 			};
 		});
+
+		// Resolve each line's background BEFORE the Pexels pass so room-backed
+		// lines are skipped by addIllustrationLink/downloadIllustrations. A line in
+		// a location WITH a chosen asset reuses that one file (same path across
+		// consecutive same-room lines → the renderer keeps it continuous); anything
+		// else falls back to a per-line Pexels clip.
+		resolveIllustrations(show, sentences);
 
 		await addIllustrationLink(sentences);
 		finalizeAppearances(sentences);
@@ -96,6 +104,7 @@ export async function prepareEpisodeAssets(
 
 	await Promise.all([
 		downloadIllustrations(plan.sentences, folder),
+		copyLocationAssets(show, plan.sentences, folder),
 		pickAndDownloadSatisfyingVideo(
 			plan.seed,
 			folder,
@@ -107,4 +116,62 @@ export async function prepareEpisodeAssets(
 	await compileAndSaveVideoConfig(plan.seed, folder, group, plan.sentences, plan.topic);
 
 	return { renderId, folder };
+}
+
+const LOCATION_CONTENT_TYPE: Record<string, string> = {
+	png: "image/png",
+	jpg: "image/jpeg",
+	jpeg: "image/jpeg",
+	webp: "image/webp",
+	gif: "image/gif",
+	mp4: "video/mp4",
+	webm: "video/webm",
+	mov: "video/quicktime",
+};
+
+/**
+ * Point each line at its background file. A line whose location has a chosen
+ * asset reuses that single per-room file (so consecutive same-room lines share
+ * it and render continuously); everything else gets a per-line Pexels clip.
+ */
+function resolveIllustrations(show: ShowConfig, sentences: ScriptSentence[]): void {
+	const withAsset = new Map(
+		show.locations.filter((l) => l.assetKind && l.assetExt).map((l) => [l.key, l]),
+	);
+	sentences.forEach((s, i) => {
+		const loc = s.locationKey ? withAsset.get(s.locationKey) : undefined;
+		if (loc) {
+			s.illustrationRoom = true;
+			s.illustrationKind = loc.assetKind;
+			s.illustrationFile = `location_${loc.key}.${loc.assetExt}`;
+		} else {
+			s.illustrationKind = "video";
+			s.illustrationFile = `sentence_${i + 1}_illustration.mp4`;
+		}
+	});
+}
+
+/** Copy each distinct room background used this episode into the render folder. */
+async function copyLocationAssets(
+	show: ShowConfig,
+	sentences: ScriptSentence[],
+	folder: string,
+): Promise<void> {
+	const used = new Map<string, { key: string; assetExt: string }>();
+	for (const s of sentences) {
+		if (!s.illustrationRoom || !s.locationKey) continue;
+		const loc = show.locations.find((l) => l.key === s.locationKey);
+		if (loc?.assetExt) used.set(loc.key, { key: loc.key, assetExt: loc.assetExt });
+	}
+	await Promise.all(
+		[...used.values()].map(async (loc) => {
+			const dest = `${folder}/location_${loc.key}.${loc.assetExt}`;
+			if (await Bun.s3.exists(dest)) return;
+			const src = `locations/${show.id}/${loc.key}.${loc.assetExt}`;
+			const bytes = new Uint8Array(await Bun.s3.file(src).arrayBuffer());
+			await Bun.s3.write(dest, bytes, {
+				type: LOCATION_CONTENT_TYPE[loc.assetExt.toLowerCase()] ?? "application/octet-stream",
+			});
+		}),
+	);
 }

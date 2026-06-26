@@ -14,7 +14,13 @@ async function downloadIllustration(
 	index: number,
 	outputFolder: string,
 ): Promise<boolean> {
-	const fileName = `sentence_${index + 1}_illustration.mp4`;
+	// Room-backed lines get their background copied from the show location asset
+	// (see prepareEpisodeAssets), so there is nothing to download here.
+	if (sentence.illustrationRoom) {
+		return false;
+	}
+
+	const fileName = sentence.illustrationFile ?? `sentence_${index + 1}_illustration.mp4`;
 	const filePath = join(outputFolder, fileName);
 
 	if (await Bun.s3.exists(filePath)) {

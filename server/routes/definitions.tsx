@@ -1496,6 +1496,52 @@ function Episodes({
 	);
 }
 
+// Stream a rendered episode's video from S3, with HTTP range support so the
+// browser can seek and start playback without buffering the whole file.
+definitions.get("/shows/:id/episodes/:index/video", async (c) => {
+	const owner = await currentOwner(c);
+	const id = c.req.param("id");
+	if (!(await definitionsRepo.show(owner, id))) return c.body(null, 404);
+	const idx = Number(c.req.param("index"));
+	const ep = (await loadManifest(id))?.episodes.find((e) => e.index === idx);
+	// renderId comes from the trusted manifest, not the URL — safe as an S3 key.
+	if (!ep?.renderId) return c.body(null, 404);
+	const file = Bun.s3.file(`output/${ep.renderId}/render.mp4`);
+
+	let size: number;
+	try {
+		size = (await file.stat()).size;
+	} catch {
+		return c.body(null, 404);
+	}
+
+	const range = c.req.header("range");
+	const match = range ? /bytes=(\d+)-(\d*)/.exec(range) : null;
+	if (match) {
+		const start = Number(match[1]);
+		const end = match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+		if (Number.isNaN(start) || start > end || start >= size) {
+			return c.body(null, 416, { "content-range": `bytes */${size}` });
+		}
+		const chunk = await file.slice(start, end + 1).arrayBuffer();
+		return c.body(chunk, 206, {
+			"content-type": "video/mp4",
+			"content-range": `bytes ${start}-${end}/${size}`,
+			"accept-ranges": "bytes",
+			"content-length": String(end - start + 1),
+			"cache-control": "no-store",
+		});
+	}
+
+	const buf = await file.arrayBuffer();
+	return c.body(buf, 200, {
+		"content-type": "video/mp4",
+		"accept-ranges": "bytes",
+		"content-length": String(size),
+		"cache-control": "no-store",
+	});
+});
+
 definitions.get("/shows/:id/episodes/:index", async (c) => {
 	const owner = await currentOwner(c);
 	const id = c.req.param("id");
@@ -1505,6 +1551,11 @@ definitions.get("/shows/:id/episodes/:index", async (c) => {
 	const idx = Number(c.req.param("index"));
 	const ep = manifest?.episodes.find((e) => e.index === idx);
 	if (!ep) return c.html(NotFound("episode"), 404);
+	// Show the finished video only once it actually exists in S3 — `renderId` is
+	// set at asset-prep time, before the render-video job produces render.mp4.
+	const hasVideo = ep.renderId
+		? await Bun.s3.exists(`output/${ep.renderId}/render.mp4`)
+		: false;
 	return c.html(
 		<Layout title={`Episode ${idx + 1} · ${id}`}>
 			<p>
@@ -1520,6 +1571,28 @@ definitions.get("/shows/:id/episodes/:index", async (c) => {
 					["description", ep.description],
 				]}
 			/>
+			{hasVideo ? (
+				<>
+					<h2>Render preview</h2>
+					<video
+						src={`/shows/${id}/episodes/${idx}/video`}
+						controls
+						playsinline
+						preload="metadata"
+						style="max-height:70vh;max-width:360px;background:#000;border-radius:8px;display:block"
+					/>
+					<p style="font-size:.8rem;opacity:.7;margin-top:.25rem">
+						<a href={`/shows/${id}/episodes/${idx}/video`} target="_blank" rel="noopener">
+							open in new tab
+						</a>
+					</p>
+				</>
+			) : ep.renderId ? (
+				<p style="opacity:.8">
+					⏳ Rendered output not available yet — the render job may still be
+					running. Refresh in a moment.
+				</p>
+			) : null}
 			<h2>Script ({ep.sentences.length} lines)</h2>
 			<table>
 				<thead>
@@ -1527,6 +1600,7 @@ definitions.get("/shows/:id/episodes/:index", async (c) => {
 						<th>#</th>
 						<th>speaker</th>
 						<th>on screen</th>
+						<th>room</th>
 						<th>illustration</th>
 						<th>line</th>
 					</tr>
@@ -1543,6 +1617,7 @@ definitions.get("/shows/:id/episodes/:index", async (c) => {
 									.map((a) => `${a.personaId}@${a.slot}:${a.stance}`)
 									.join(", ")}
 							</td>
+							<td>{line.locationKey ? <code>{line.locationKey}</code> : "—"}</td>
 							<td>{line.illustration}</td>
 							<td>{line.sentence}</td>
 						</tr>

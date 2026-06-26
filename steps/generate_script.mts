@@ -36,6 +36,8 @@ export async function addIllustrationLink(sentences: ScriptSentence[]) {
 
 	const myPexelsClient = getPexelsClient();
 	for (const sentence of sentences) {
+		// Room-backed lines already have their background (a show location asset).
+		if (sentence.illustrationRoom) continue;
 		const response = await myPexelsClient.videos.search({
 			query: sentence.illustration,
 			per_page: 10,

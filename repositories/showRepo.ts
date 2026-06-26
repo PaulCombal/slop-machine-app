@@ -13,13 +13,20 @@ export const showRepo = {
 		`;
 		const result: ShowConfig[] = [];
 		for (const s of shows) {
-			const roster = await sql`
-				select p.* from show_roster r
-				join personae p on p.id = r.persona_id
-				where r.show_id = ${s.id}
-				order by r.position
-			`;
-			result.push(rowToShowConfig(s, roster.map(rowToPersonaConfig)));
+			const [roster, locations] = await Promise.all([
+				sql`
+					select p.* from show_roster r
+					join personae p on p.id = r.persona_id
+					where r.show_id = ${s.id}
+					order by r.position
+				`,
+				sql`
+					select location_key, name, description, asset_kind, asset_ext
+					from show_locations where show_id = ${s.id}
+					order by position, location_key
+				`,
+			]);
+			result.push(rowToShowConfig(s, roster.map(rowToPersonaConfig), locations));
 		}
 		return result;
 	},

@@ -14,6 +14,8 @@ export type EpisodePlanSentence = {
 	appearances: EpisodePlanAppearance[];
 	sentence: string;
 	illustration: string;
+	/** Key of the show location this line happens in, if any (else Pexels). */
+	locationKey?: string;
 };
 
 export type EpisodeStatus = "pending" | "queued" | "done";
@@ -67,12 +69,16 @@ function dummy(show: ShowConfig): SeriesManifest {
 				appearances: stage,
 				sentence: `Day ${n} in the house and something feels off.`,
 				illustration: "house",
+				// Tag both debug lines with the same room (when one exists) so the
+				// "consecutive same room → one continuous background" path is exercised.
+				locationKey: show.locations[0]?.key,
 			},
 			{
 				speakerId: b,
 				appearances: stage,
 				sentence: "Trust me, I already know exactly what's going on.",
 				illustration: "whisper",
+				locationKey: show.locations[0]?.key,
 			},
 		],
 		};
@@ -115,6 +121,16 @@ export async function generateSeriesBreakdown(
 		)
 		.join("\n");
 
+	// Locations the writer may set scenes in. We list ALL of them so scenes read
+	// coherently; asset resolution later falls back to stock footage for any line
+	// whose location has no background picked yet.
+	const locationKeys = new Set(show.locations.map((l) => l.key));
+	const locationsBlock = show.locations.length
+		? show.locations
+				.map((l) => `(key: '${l.key}') ${l.name}: ${l.description}`)
+				.join("\n")
+		: "";
+
 	const SlotEnum = z.enum([
 		"far-left",
 		"left",
@@ -132,6 +148,9 @@ export async function generateSeriesBreakdown(
 		appearances: z.array(AppearanceSchema).min(1),
 		sentence: z.string(),
 		illustration: z.string(),
+		// Free string; sanitised against the known location keys after parsing
+		// (an enum would reject when the show has no locations at all).
+		locationKey: z.string().optional(),
 	});
 
 	const EpisodeSchema = z.object({
@@ -160,7 +179,11 @@ ${castDescription}
 # ANIMATION CONSTRAINTS
 Each character MUST only use their specific available stances:
 ${castStances}
-
+${
+	locationsBlock
+		? `\n# LOCATIONS (where scenes can take place)\n${locationsBlock}\n`
+		: ""
+}
 # SOURCE SCRIPT (the whole story)
 ${show.prose}
 
@@ -182,7 +205,12 @@ ${show.prose}
 ${show.prompt ? `- ${show.prompt}` : ""}
 - Keep sentences under 15-20 words for "Shorts" pacing.
 - Make characters interrupt, agree or clash to create energy.
-- "illustration" MUST be a concrete noun for stock-footage search (e.g. "locked door" not "suspense").
+- "illustration" MUST be a concrete noun for stock-footage search (e.g. "locked door" not "suspense").${
+		locationsBlock
+			? `
+- "locationKey" MUST be one of the location keys listed above for the place that line happens in. Keep consecutive lines in the SAME location whenever the scene does not move, so the background stays continuous. Only change locationKey when the scene actually moves to a different place. If no listed location fits, omit "locationKey".`
+			: ""
+	}
 - For each episode also write a catchy "title", an SEO "description", and 3-5 "hashtags" (with the # symbol).
 - Do NOT use em dashes.
 
@@ -202,7 +230,7 @@ Return ONLY a valid JSON object of the form:
             { "personaId": "Exact id from cast", "stance": "Exact stance for that character", "slot": "left" }
           ],
           "sentence": "",
-          "illustration": ""
+          "illustration": ""${locationsBlock ? ',\n          "locationKey": "one of the location keys, or omit"' : ""}
         }
       ]
     }
@@ -221,6 +249,14 @@ Return ONLY a valid JSON object of the form:
 		...ep,
 		index,
 		status: "pending" as const,
+		// Drop any hallucinated location key the model invents.
+		sentences: ep.sentences.map((s) => ({
+			...s,
+			locationKey:
+				s.locationKey && locationKeys.has(s.locationKey)
+					? s.locationKey
+					: undefined,
+		})),
 	}));
 
 	return {

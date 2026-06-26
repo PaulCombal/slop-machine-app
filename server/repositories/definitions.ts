@@ -466,9 +466,9 @@ export const definitionsRepo = {
 	},
 
 	// ---- show locations (rooms) ----------------------------------------
-	// Owner-scoped via the parent show; not part of the registry cache, so these
-	// writes don't publishInvalidate. Phase 2 will wire the chosen assets into the
-	// render manifest.
+	// Owner-scoped via the parent show. Locations are part of the show in the
+	// registry cache (the breakdown + asset prep read show.locations), so writes
+	// publish an invalidation just like the other definition mutations.
 
 	/** All of a show's locations, in display order. Empty if the show is absent. */
 	async locations(owner: CurrentOwner, showKey: string): Promise<LocationRow[]> {
@@ -519,6 +519,7 @@ export const definitionsRepo = {
 			on conflict (show_id, location_key) do nothing
 			returning id
 		`;
+		if (rows.length) await publishInvalidate();
 		return rows.length > 0;
 	},
 
@@ -537,6 +538,7 @@ export const definitionsRepo = {
 				and s.show_key = ${showKey} and l.location_key = ${locKey}
 		`;
 		if (res.count === 0) throw new DefinitionError({ key: "location not found" });
+		await publishInvalidate();
 	},
 
 	/** Delete a location (its S3 asset is removed by the route). */
@@ -551,6 +553,7 @@ export const definitionsRepo = {
 			where l.show_id = s.id and s.user_id = ${owner.id}
 				and s.show_key = ${showKey} and l.location_key = ${locKey}
 		`;
+		await publishInvalidate();
 	},
 };
 
