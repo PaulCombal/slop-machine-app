@@ -1,7 +1,8 @@
 import { type Context, Hono } from "hono";
 import { mediaRepo } from "../../repositories/media.ts";
+import { channelsRepo } from "../../repositories/channelsRepo.ts";
 import type { EpisodePlan } from "../../steps/generate_series.mts";
-import { deleteManifest, loadManifest } from "../../utils/seriesManifest.ts";
+import { deleteManifest, loadManifest, saveManifest } from "../../utils/seriesManifest.ts";
 import { isShowLocked } from "../../show.mts";
 import { currentOwner } from "../currentOwner.ts";
 import { type Body, arr, bool, str } from "../formBody.ts";
@@ -44,6 +45,11 @@ export const definitions = new Hono();
 /** Saved theme keys for the theme combobox on persona/group/show forms. */
 async function listThemeKeys(ownerId: string): Promise<string[]> {
 	return (await mediaRepo.list(ownerId, "theme")).map((m) => m.assetKey);
+}
+
+/** Saved channel keys for the channel dropdown on the show form. */
+async function listChannelKeys(ownerId: string): Promise<string[]> {
+	return (await channelsRepo.listByOwner(ownerId)).map((ch) => ch.channelKey);
 }
 
 /** Render a label/value grid for a detail page. */
@@ -811,9 +817,10 @@ definitions.get("/shows/new", async (c) => {
 	const owner = await currentOwner(c);
 	const personaOptions = await definitionsRepo.personaOptions(owner);
 	const themeKeys = await listThemeKeys(owner.id);
+	const channelKeys = await listChannelKeys(owner.id);
 	return c.html(
 		<Layout title="New show">
-			<ShowForm action="/shows" value={{}} errors={{}} isEdit={false} personaOptions={personaOptions} themeKeys={themeKeys} />
+			<ShowForm action="/shows" value={{}} errors={{}} isEdit={false} personaOptions={personaOptions} themeKeys={themeKeys} channelKeys={channelKeys} />
 		</Layout>,
 	);
 });
@@ -824,10 +831,11 @@ definitions.post("/shows", async (c) => {
 	const raw = buildShowRaw(body);
 	const personaOptions = await definitionsRepo.personaOptions(owner);
 	const themeKeys = await listThemeKeys(owner.id);
+	const channelKeys = await listChannelKeys(owner.id);
 	const render = (errors: Record<string, string>) =>
 		c.html(
 			<Layout title="New show">
-				<ShowForm action="/shows" value={raw} errors={errors} isEdit={false} personaOptions={personaOptions} themeKeys={themeKeys} />
+				<ShowForm action="/shows" value={raw} errors={errors} isEdit={false} personaOptions={personaOptions} themeKeys={themeKeys} channelKeys={channelKeys} />
 			</Layout>,
 		);
 	const parsed = showSchema.safeParse(raw);
@@ -850,6 +858,7 @@ definitions.get("/shows/:id/edit", async (c) => {
 	const locked = isShowLocked(status);
 	const personaOptions = await definitionsRepo.personaOptions(owner);
 	const themeKeys = await listThemeKeys(owner.id);
+	const channelKeys = await listChannelKeys(owner.id);
 	return c.html(
 		<Layout title={`Edit show · ${key}`}>
 			{locked ? (
@@ -859,7 +868,7 @@ definitions.get("/shows/:id/edit", async (c) => {
 					<ReopenShowForm showId={key} />
 				</p>
 			) : null}
-			<ShowForm action={`/shows/${key}`} value={value} errors={{}} isEdit={true} locked={locked} personaOptions={personaOptions} themeKeys={themeKeys} />
+			<ShowForm action={`/shows/${key}`} value={value} errors={{}} isEdit={true} locked={locked} personaOptions={personaOptions} themeKeys={themeKeys} channelKeys={channelKeys} />
 		</Layout>,
 	);
 });
@@ -871,6 +880,7 @@ definitions.post("/shows/:id", async (c) => {
 	const raw = buildShowRaw(body);
 	const personaOptions = await definitionsRepo.personaOptions(owner);
 	const themeKeys = await listThemeKeys(owner.id);
+	const channelKeys = await listChannelKeys(owner.id);
 	const locked = isShowLocked(await definitionsRepo.showStatus(owner, key));
 	if (locked) {
 		// Breakdown inputs are frozen — keep the stored values no matter what was
@@ -887,7 +897,7 @@ definitions.post("/shows/:id", async (c) => {
 	const render = (errors: Record<string, string>) =>
 		c.html(
 			<Layout title={`Edit show · ${key}`}>
-				<ShowForm action={`/shows/${key}`} value={raw} errors={errors} isEdit={true} locked={locked} personaOptions={personaOptions} themeKeys={themeKeys} />
+				<ShowForm action={`/shows/${key}`} value={raw} errors={errors} isEdit={true} locked={locked} personaOptions={personaOptions} themeKeys={themeKeys} channelKeys={channelKeys} />
 			</Layout>,
 		);
 	const parsed = showSchema.safeParse(raw);
@@ -1004,6 +1014,7 @@ function generatedPersonaInput(
 		language: "en-US",
 		theme,
 		themeVolume: 0.2,
+		themes: [],
 		ttsProvider: "pocket",
 		elevenLabsVoiceId: "",
 		kokoroVoiceId: "",
@@ -1542,6 +1553,239 @@ definitions.get("/shows/:id/episodes/:index/video", async (c) => {
 	});
 });
 
+// ---- Episode first-frame / thumbnail image --------------------------------
+
+/** A thumbnail targets one episode index, or "all" (the manifest-level default). */
+type ThumbScope = number | "all";
+
+/** Portrait, eye-catching wrapper so the still reads as a Shorts cover. */
+function buildThumbnailPrompt(desc: string): string {
+	return (
+		"A bold, eye-catching vertical 9:16 thumbnail cover image for a short video, " +
+		"high contrast, dramatic lighting, punchy and clickable. Subject: " +
+		desc
+	);
+}
+
+/** Resolve owner + S3-safe show key + episode index for a thumbnail request. */
+async function episodeThumbCtx(c: Context) {
+	const owner = await currentOwner(c);
+	const showKey = c.req.param("id") ?? "";
+	const index = Number(c.req.param("index"));
+	if (!isSafeSegment(showKey) || !Number.isInteger(index) || index < 0) return null;
+	return { owner, showKey, index };
+}
+
+/**
+ * Store a first-frame still for one episode (or the "all" default) and record its
+ * extension on the manifest. Drops the previous asset if the extension changed.
+ * Returns false if the manifest / episode is missing.
+ */
+async function storeEpisodeThumbnail(
+	showKey: string,
+	scope: ThumbScope,
+	bytes: Uint8Array | File,
+	ext: string,
+): Promise<boolean> {
+	const manifest = await loadManifest(showKey);
+	if (!manifest) return false;
+	const ep =
+		scope === "all" ? null : manifest.episodes.find((e) => e.index === scope);
+	if (scope !== "all" && !ep) return false;
+	const prevExt = scope === "all" ? manifest.defaultThumbnailExt : ep?.thumbnailExt;
+	await Bun.s3.write(`shows/${showKey}/thumbnails/${scope}.${ext}`, bytes, {
+		type: locationContentType(ext),
+	});
+	if (prevExt && prevExt !== ext) {
+		await Bun.s3.file(`shows/${showKey}/thumbnails/${scope}.${prevExt}`).delete().catch(() => {});
+	}
+	if (scope === "all") manifest.defaultThumbnailExt = ext;
+	else ep!.thumbnailExt = ext;
+	await saveManifest(manifest);
+	return true;
+}
+
+/** Remove an episode's own thumbnail, or the "all" default, from S3 + manifest. */
+async function removeEpisodeThumbnail(showKey: string, scope: ThumbScope): Promise<void> {
+	const manifest = await loadManifest(showKey);
+	if (!manifest) return;
+	const ep =
+		scope === "all" ? null : manifest.episodes.find((e) => e.index === scope);
+	const prevExt = scope === "all" ? manifest.defaultThumbnailExt : ep?.thumbnailExt;
+	if (prevExt) {
+		await Bun.s3.file(`shows/${showKey}/thumbnails/${scope}.${prevExt}`).delete().catch(() => {});
+	}
+	if (scope === "all") manifest.defaultThumbnailExt = undefined;
+	else if (ep) ep.thumbnailExt = undefined;
+	await saveManifest(manifest);
+}
+
+// Upload a still as this episode's first frame (or the shared default).
+definitions.post("/shows/:id/episodes/:index/thumbnail/upload", async (c) => {
+	const ctx = await episodeThumbCtx(c);
+	if (!ctx) return c.body(null, 404);
+	if (!(await definitionsRepo.show(ctx.owner, ctx.showKey))) return c.html(NotFound("show"), 404);
+	const body = await c.req.parseBody({ all: true });
+	const back = `/shows/${ctx.showKey}/episodes/${ctx.index}`;
+	const file = body["file"];
+	if (!(file instanceof File) || file.size === 0 || !file.type.startsWith("image/")) {
+		return c.redirect(`${back}?thumb=error`);
+	}
+	const ext = extFromFile(file);
+	if (!isSafeSegment(ext)) return c.redirect(`${back}?thumb=error`);
+	const scope: ThumbScope = bool(body, "applyAll") ? "all" : ctx.index;
+	const ok = await storeEpisodeThumbnail(ctx.showKey, scope, file, ext);
+	return c.redirect(`${back}?thumb=${ok ? "saved" : "error"}`);
+});
+
+// Generate a still with AI and set it as this episode's first frame (or default).
+definitions.post("/shows/:id/episodes/:index/thumbnail/generate", async (c) => {
+	const ctx = await episodeThumbCtx(c);
+	if (!ctx) return c.body(null, 404);
+	if (!(await definitionsRepo.show(ctx.owner, ctx.showKey))) return c.html(NotFound("show"), 404);
+	const body = await c.req.parseBody();
+	const back = `/shows/${ctx.showKey}/episodes/${ctx.index}`;
+	const prompt = str(body, "prompt").trim();
+	if (!prompt) return c.redirect(`${back}?thumb=noprompt`);
+	const modelInput = str(body, "model").trim();
+	const model: StanceModel = (STANCE_MODELS.some((m) => m.id === modelInput)
+		? modelInput
+		: "flux2") as StanceModel;
+	let png: Uint8Array;
+	try {
+		png = await generateStanceImage(buildThumbnailPrompt(prompt), [], model);
+	} catch (e) {
+		console.error("thumbnail generation failed:", e);
+		return c.redirect(`${back}?thumb=genfail`);
+	}
+	const scope: ThumbScope = bool(body, "applyAll") ? "all" : ctx.index;
+	const ok = await storeEpisodeThumbnail(ctx.showKey, scope, png, "png");
+	return c.redirect(`${back}?thumb=${ok ? "saved" : "error"}`);
+});
+
+// Remove this episode's thumbnail, or the shared default (scope=default).
+definitions.post("/shows/:id/episodes/:index/thumbnail/remove", async (c) => {
+	const ctx = await episodeThumbCtx(c);
+	if (!ctx) return c.body(null, 404);
+	if (!(await definitionsRepo.show(ctx.owner, ctx.showKey))) return c.html(NotFound("show"), 404);
+	const body = await c.req.parseBody();
+	const scope: ThumbScope = str(body, "scope") === "default" ? "all" : ctx.index;
+	await removeEpisodeThumbnail(ctx.showKey, scope);
+	return c.redirect(`/shows/${ctx.showKey}/episodes/${ctx.index}?thumb=removed`);
+});
+
+// Serve a stored thumbnail (scope=default for the shared one, else this episode's).
+definitions.get("/shows/:id/episodes/:index/thumbnail/asset", async (c) => {
+	const ctx = await episodeThumbCtx(c);
+	if (!ctx) return c.body(null, 404);
+	if (!(await definitionsRepo.show(ctx.owner, ctx.showKey))) return c.body(null, 404);
+	const manifest = await loadManifest(ctx.showKey);
+	if (!manifest) return c.body(null, 404);
+	const wantDefault = c.req.query("scope") === "default";
+	const ext = wantDefault
+		? manifest.defaultThumbnailExt
+		: manifest.episodes.find((e) => e.index === ctx.index)?.thumbnailExt;
+	if (!ext) return c.body(null, 404);
+	const scope = wantDefault ? "all" : ctx.index;
+	try {
+		const buf = await Bun.s3.file(`shows/${ctx.showKey}/thumbnails/${scope}.${ext}`).arrayBuffer();
+		return c.body(buf, 200, {
+			"content-type": locationContentType(ext),
+			"cache-control": "no-store",
+		});
+	} catch {
+		return c.body(null, 404);
+	}
+});
+
+/** Upload / AI-generate / preview widget for an episode's first-frame image. */
+function EpisodeThumbnail({
+	showKey,
+	index,
+	epExt,
+	defaultExt,
+	flash,
+}: {
+	showKey: string;
+	index: number;
+	epExt?: string;
+	defaultExt?: string;
+	flash?: string;
+}) {
+	const base = `/shows/${showKey}/episodes/${index}/thumbnail`;
+	const note: Record<string, string> = {
+		saved: "✓ thumbnail saved",
+		removed: "✓ thumbnail removed",
+		error: "couldn't save — check the image file",
+		genfail: "generation failed",
+		noprompt: "enter a prompt first",
+	};
+	return (
+		<>
+			<h2>First-frame image (Shorts thumbnail)</h2>
+			{flash && note[flash] ? (
+				<p class={flash === "saved" || flash === "removed" ? "ok" : "err"}>{note[flash]}</p>
+			) : null}
+			<p style="opacity:.8;font-size:.85rem;margin:.25rem 0 .75rem">
+				Shown for a single frame at the very start so YouTube grabs it as the cover.
+				This episode uses its own image if set, otherwise the shared default.
+			</p>
+			<div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-start">
+				<div>
+					<strong>This episode</strong>
+					<br />
+					{epExt ? (
+						<>
+							<img src={`${base}/asset?ext=${epExt}`} alt="episode thumbnail" style="max-width:160px;border-radius:8px;display:block;background:#0002;margin:.25rem 0" />
+							<form method="post" action={`${base}/remove`}>
+								<input type="hidden" name="scope" value="episode" />
+								<button type="submit">remove</button>
+							</form>
+						</>
+					) : (
+						<span class="hint">none (using default)</span>
+					)}
+				</div>
+				<div>
+					<strong>Default (all episodes)</strong>
+					<br />
+					{defaultExt ? (
+						<>
+							<img src={`${base}/asset?scope=default&ext=${defaultExt}`} alt="default thumbnail" style="max-width:160px;border-radius:8px;display:block;background:#0002;margin:.25rem 0" />
+							<form method="post" action={`${base}/remove`}>
+								<input type="hidden" name="scope" value="default" />
+								<button type="submit">remove default</button>
+							</form>
+						</>
+					) : (
+						<span class="hint">none</span>
+					)}
+				</div>
+			</div>
+			<h3>Upload an image</h3>
+			<form method="post" action={`${base}/upload`} enctype="multipart/form-data">
+				<input type="file" name="file" accept="image/*" required />
+				<label class="inline"><input type="checkbox" name="applyAll" value="1" /> apply to all episodes</label>
+				<button type="submit">upload</button>
+			</form>
+			<h3>Generate with AI</h3>
+			<form method="post" action={`${base}/generate`}>
+				<textarea name="prompt" rows={2} placeholder="e.g. shocked contestant in a neon mushroom house" style="display:block;width:100%;max-width:480px" />
+				<label>
+					model{" "}
+					<select name="model">
+						{STANCE_MODELS.map((m) => (
+							<option value={m.id}>{m.label}</option>
+						))}
+					</select>
+				</label>
+				<label class="inline"><input type="checkbox" name="applyAll" value="1" /> apply to all episodes</label>
+				<button type="submit">generate</button>
+			</form>
+		</>
+	);
+}
+
 definitions.get("/shows/:id/episodes/:index", async (c) => {
 	const owner = await currentOwner(c);
 	const id = c.req.param("id");
@@ -1593,6 +1837,13 @@ definitions.get("/shows/:id/episodes/:index", async (c) => {
 					running. Refresh in a moment.
 				</p>
 			) : null}
+			<EpisodeThumbnail
+				showKey={id}
+				index={idx}
+				epExt={ep.thumbnailExt}
+				defaultExt={manifest?.defaultThumbnailExt}
+				flash={c.req.query("thumb")}
+			/>
 			<h2>Script ({ep.sentences.length} lines)</h2>
 			<table>
 				<thead>
@@ -1632,7 +1883,6 @@ definitions.get("/shows/:id", async (c) => {
 	const s = await definitionsRepo.show(await currentOwner(c), c.req.param("id"));
 	if (!s) return c.html(NotFound("show"), 404);
 	const manifest = await loadManifest(s.id);
-	const queued = c.req.query("breakdown") === "queued";
 	const personae = c.req.query("personae");
 	const skipped = c.req.query("skipped");
 	const personaeMsg =
@@ -1728,7 +1978,7 @@ definitions.get("/shows/:id", async (c) => {
 			</form>
 
 			<h2>Episodes</h2>
-			{queued || s.status === "breaking_down" ? (
+			{s.status === "breaking_down" ? (
 				<p style="color:#2e7d32">
 					✅ Breakdown running — prose and cast are locked until it finishes;
 					refresh in a moment to review the episodes.
@@ -1817,6 +2067,7 @@ function buildPersonaRaw(body: Body): Record<string, unknown> {
 		language: str(body, "language"),
 		theme: str(body, "theme"),
 		themeVolume: str(body, "themeVolume"),
+		themes: arr(body, "themes"),
 		ttsProvider: str(body, "ttsProvider"),
 		elevenLabsVoiceId: str(body, "elevenLabsVoiceId"),
 		kokoroVoiceId: str(body, "kokoroVoiceId"),
@@ -1850,6 +2101,7 @@ function buildGroupRaw(body: Body): Record<string, unknown> {
 		platforms: arr(body, "platforms"),
 		theme: str(body, "theme"),
 		themeVolume: str(body, "themeVolume"),
+		themes: arr(body, "themes"),
 		satisfyingVideoCategory: str(body, "satisfyingVideoCategory"),
 		endPaddingDurationMs: str(body, "endPaddingDurationMs"),
 		personaKeys: arr(body, "personaKeys"),
@@ -1874,6 +2126,7 @@ function buildShowRaw(body: Body): Record<string, unknown> {
 		platforms: arr(body, "platforms"),
 		theme: str(body, "theme"),
 		themeVolume: str(body, "themeVolume"),
+		themes: arr(body, "themes"),
 		satisfyingVideoCategory: str(body, "satisfyingVideoCategory"),
 		endPaddingDurationMs: str(body, "endPaddingDurationMs"),
 		ytCategoryCode: str(body, "ytCategoryCode"),

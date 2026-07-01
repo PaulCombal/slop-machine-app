@@ -138,6 +138,7 @@ export const definitionsRepo = {
 			language: r.language,
 			theme: r.theme,
 			themeVolume: num(r.theme_volume),
+			themes: typeof r.themes === "string" ? JSON.parse(r.themes) : (r.themes ?? []),
 			ttsProvider: r.tts_provider,
 			elevenLabsVoiceId: r.elevenlabs_voice_id,
 			kokoroVoiceId: r.kokoro_voice_id,
@@ -185,6 +186,7 @@ export const definitionsRepo = {
 			platforms: g.platforms,
 			theme: g.theme,
 			themeVolume: num(g.theme_volume),
+			themes: typeof g.themes === "string" ? JSON.parse(g.themes) : (g.themes ?? []),
 			satisfyingVideoCategory: g.satisfying_video_category,
 			endPaddingDurationMs: num(g.end_padding_duration_ms),
 			personaKeys: members.map((m: { persona_key: string }) => m.persona_key),
@@ -215,6 +217,7 @@ export const definitionsRepo = {
 			platforms: s.platforms,
 			theme: s.theme,
 			themeVolume: num(s.theme_volume),
+			themes: typeof s.themes === "string" ? JSON.parse(s.themes) : (s.themes ?? []),
 			satisfyingVideoCategory: s.satisfying_video_category,
 			endPaddingDurationMs: num(s.end_padding_duration_ms),
 			ytCategoryCode: s.yt_category_code,
@@ -227,14 +230,14 @@ export const definitionsRepo = {
 		await assertKeyFree("personae", "persona_key", owner.id, input.key);
 		await sql`
 			insert into personae (
-				user_id, persona_key, asset_id, persona_name, language, theme, theme_volume,
+				user_id, persona_key, asset_id, persona_name, language, theme, theme_volume, themes,
 				tts_provider, elevenlabs_voice_id, kokoro_voice_id, kokoro_language,
 				qwen_voice_id, pocket_voice_id, pocket_use_voice_sample,
 				size, pos_x_range, pos_x_offset, group_pos_x_range, group_pos_x_offset, mirrorable,
 				news_region, news_topics, yt_category_code, prompt_personality, prompt_video_meta,
 				prompt_video_meta_given_news_tmpl, prompt_script_guidelines_tmpl, stance_default_prompt, stances
 			) values (
-				${owner.id}, ${input.key}, ${input.assetId}, ${input.personaName}, ${input.language}, ${input.theme}, ${input.themeVolume},
+				${owner.id}, ${input.key}, ${input.assetId}, ${input.personaName}, ${input.language}, ${input.theme}, ${input.themeVolume}, ${JSON.stringify(input.themes)}::jsonb,
 				${input.ttsProvider}, ${input.elevenLabsVoiceId}, ${input.kokoroVoiceId}, ${input.kokoroLanguage},
 				${input.qwenVoiceId}, ${input.pocketVoiceId}, ${input.pocketUseVoiceSample},
 				${input.size}, ${input.posXRange}, ${input.posXOffset}, ${input.groupPosXRange}, ${input.groupPosXOffset}, ${input.mirrorable},
@@ -257,6 +260,7 @@ export const definitionsRepo = {
 			update personae set
 				asset_id = ${input.assetId}, persona_name = ${input.personaName},
 				language = ${input.language}, theme = ${input.theme}, theme_volume = ${input.themeVolume},
+				themes = ${JSON.stringify(input.themes)}::jsonb,
 				tts_provider = ${input.ttsProvider}, elevenlabs_voice_id = ${input.elevenLabsVoiceId},
 				kokoro_voice_id = ${input.kokoroVoiceId}, kokoro_language = ${input.kokoroLanguage},
 				qwen_voice_id = ${input.qwenVoiceId}, pocket_voice_id = ${input.pocketVoiceId},
@@ -336,10 +340,10 @@ export const definitionsRepo = {
 		await sql.begin(async (tx) => {
 			const rows = await tx`
 				insert into persona_groups (
-					user_id, group_key, prompt, channel_id, platforms, theme, theme_volume,
+					user_id, group_key, prompt, channel_id, platforms, theme, theme_volume, themes,
 					satisfying_video_category, end_padding_duration_ms
 				) values (
-					${owner.id}, ${input.key}, ${input.prompt}, ${input.channelId}, ${pgArray(input.platforms)}::text[], ${input.theme}, ${input.themeVolume},
+					${owner.id}, ${input.key}, ${input.prompt}, ${input.channelId}, ${pgArray(input.platforms)}::text[], ${input.theme}, ${input.themeVolume}, ${JSON.stringify(input.themes)}::jsonb,
 					${input.satisfyingVideoCategory}, ${input.endPaddingDurationMs}
 				) returning id
 			`;
@@ -365,7 +369,7 @@ export const definitionsRepo = {
 				update persona_groups set
 					prompt = ${input.prompt}, channel_id = ${input.channelId},
 					platforms = ${pgArray(input.platforms)}::text[], theme = ${input.theme},
-					theme_volume = ${input.themeVolume},
+					theme_volume = ${input.themeVolume}, themes = ${JSON.stringify(input.themes)}::jsonb,
 					satisfying_video_category = ${input.satisfyingVideoCategory},
 					end_padding_duration_ms = ${input.endPaddingDurationMs}
 				where user_id = ${owner.id} and group_key = ${key}
@@ -396,11 +400,11 @@ export const definitionsRepo = {
 			const rows = await tx`
 				insert into shows (
 					user_id, show_key, prose, prompt, split, max_cast_per_episode,
-					channel_id, platforms, theme, theme_volume,
+					channel_id, platforms, theme, theme_volume, themes,
 					satisfying_video_category, end_padding_duration_ms, yt_category_code
 				) values (
 					${owner.id}, ${input.key}, ${input.prose}, ${input.prompt}, ${JSON.stringify(input.split)}::jsonb, ${input.maxCastPerEpisode},
-					${input.channelId}, ${pgArray(input.platforms)}::text[], ${input.theme}, ${input.themeVolume},
+					${input.channelId}, ${pgArray(input.platforms)}::text[], ${input.theme}, ${input.themeVolume}, ${JSON.stringify(input.themes)}::jsonb,
 					${input.satisfyingVideoCategory}, ${input.endPaddingDurationMs}, ${input.ytCategoryCode}
 				) returning id
 			`;
@@ -427,7 +431,7 @@ export const definitionsRepo = {
 					prose = ${input.prose}, prompt = ${input.prompt},
 					split = ${JSON.stringify(input.split)}::jsonb, max_cast_per_episode = ${input.maxCastPerEpisode},
 					channel_id = ${input.channelId}, platforms = ${pgArray(input.platforms)}::text[],
-					theme = ${input.theme}, theme_volume = ${input.themeVolume},
+					theme = ${input.theme}, theme_volume = ${input.themeVolume}, themes = ${JSON.stringify(input.themes)}::jsonb,
 					satisfying_video_category = ${input.satisfyingVideoCategory},
 					end_padding_duration_ms = ${input.endPaddingDurationMs}, yt_category_code = ${input.ytCategoryCode}
 				where user_id = ${owner.id} and show_key = ${key}

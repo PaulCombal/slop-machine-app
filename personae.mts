@@ -45,8 +45,12 @@ export type PersonaConfig = {
 	groupPosXOffset: number;
 	mirrorable: boolean;
 	personaName: string;
+	/** Base background track; plays on any line the writer leaves un-themed. */
 	theme: string;
 	themeVolume: number;
+	/** Palette of theme keys the scriptwriter may switch to per sentence.
+	 * Optional so legacy code-defined personae need not set it; DB path always does. */
+	themes?: string[];
 	language: "en-US" | "fr-FR";
 	promptPersonality: string;
 	promptVideoMetaGivenNews: (newsItem: SummarizedNewsArticle) => string;

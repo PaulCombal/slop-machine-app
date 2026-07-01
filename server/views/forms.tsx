@@ -273,7 +273,7 @@ function ThemeField({
 	const keys = cur && !themeKeys.includes(cur) ? [cur, ...themeKeys] : themeKeys;
 	return (
 		<label>
-			<span>theme (background music)</span>
+			<span>base theme (default music; plays on un-themed lines)</span>
 			<select name="theme">
 				<option value="" selected={cur === ""}>
 					— no theme —
@@ -285,6 +285,80 @@ function ThemeField({
 				))}
 			</select>
 			<Err errors={errors} name="theme" />
+		</label>
+	);
+}
+
+/**
+ * The palette of themes the scriptwriter may switch to per sentence — a curated
+ * subset of the theme library. Checkbox group over the saved theme keys; any
+ * currently-selected key that's no longer in the library is still shown so an
+ * old definition doesn't silently drop it.
+ */
+function ThemePalette({
+	value,
+	errors,
+	themeKeys,
+}: {
+	value: Vals;
+	errors: Errs;
+	themeKeys: string[];
+}) {
+	const selected = (value.themes as string[] | undefined) ?? [];
+	const keys = [...new Set([...themeKeys, ...selected])];
+	return (
+		<label>
+			<span>mood themes (scriptwriter may switch per line)</span>
+			<span class="checkgroup">
+				{keys.length ? (
+					keys.map((k) => (
+						<label class="inline">
+							<input
+								type="checkbox"
+								name="themes"
+								value={k}
+								checked={selected.includes(k)}
+							/>
+							<span>{k}</span>
+						</label>
+					))
+				) : (
+					<span class="hint">no themes in the library yet — add some under Themes</span>
+				)}
+			</span>
+			<Err errors={errors} name="themes" />
+		</label>
+	);
+}
+
+/** Channel id as a dropdown of the owner's saved channels (by channel key). */
+function ChannelField({
+	value,
+	errors,
+	channelKeys,
+}: {
+	value: Vals;
+	errors: Errs;
+	channelKeys: string[];
+}) {
+	const cur = s(value.channelId);
+	// Keep an unknown current value selectable so editing an old definition whose
+	// channel was renamed/removed doesn't silently blank the field.
+	const keys = cur && !channelKeys.includes(cur) ? [cur, ...channelKeys] : channelKeys;
+	return (
+		<label>
+			<span>channel id</span>
+			<select name="channelId">
+				<option value="" selected={cur === ""} disabled>
+					— pick a channel —
+				</option>
+				{keys.map((k) => (
+					<option value={k} selected={k === cur}>
+						{k}
+					</option>
+				))}
+			</select>
+			<Err errors={errors} name="channelId" />
 		</label>
 	);
 }
@@ -425,6 +499,7 @@ export function PersonaForm({
 			<Select name="language" label="language" value={v} errors={errors} options={["en-US", "fr-FR"]} />
 			<ThemeField value={v} errors={errors} themeKeys={themeKeys} />
 			<Num name="themeVolume" label="theme volume (0–1)" value={v} errors={errors} />
+			<ThemePalette value={v} errors={errors} themeKeys={themeKeys} />
 			<Select name="ttsProvider" label="TTS provider" value={v} errors={errors} options={["elevenlabs", "kokoro", "qwen", "pocket"]} />
 			<Text name="elevenLabsVoiceId" label="elevenlabs voice id" value={v} errors={errors} />
 			<Text name="kokoroVoiceId" label="kokoro voice id" value={v} errors={errors} />
@@ -490,6 +565,7 @@ export function GroupForm({
 			<CheckGroup name="platforms" label="platforms" value={v} errors={errors} options={PLATFORMS} />
 			<ThemeField value={v} errors={errors} themeKeys={themeKeys} />
 			<Num name="themeVolume" label="theme volume (0–1)" value={v} errors={errors} />
+			<ThemePalette value={v} errors={errors} themeKeys={themeKeys} />
 			<Select name="satisfyingVideoCategory" label="satisfying video category" value={v} errors={errors} options={["satisfying", "gameplay", "america"]} />
 			<Num name="endPaddingDurationMs" label="end padding (ms)" value={v} errors={errors} />
 			<CheckGroup
@@ -515,6 +591,7 @@ export function ShowForm({
 	locked = false,
 	personaOptions,
 	themeKeys = [],
+	channelKeys = [],
 }: {
 	action: string;
 	value: Partial<ShowInput> | Vals;
@@ -523,6 +600,7 @@ export function ShowForm({
 	locked?: boolean;
 	personaOptions: { key: string; name: string }[];
 	themeKeys?: string[];
+	channelKeys?: string[];
 }) {
 	const v = value as Vals;
 	const split = (v.split ?? {}) as Record<string, unknown>;
@@ -570,10 +648,11 @@ export function ShowForm({
 		<form method="post" action={action} class="def">
 			<Err errors={errors} name="_" />
 			<Text name="key" label="key" value={v} errors={errors} readonly={isEdit} />
-			<Text name="channelId" label="channel id" value={v} errors={errors} />
+			<ChannelField value={v} errors={errors} channelKeys={channelKeys} />
 			<CheckGroup name="platforms" label="platforms" value={v} errors={errors} options={PLATFORMS} />
 			<ThemeField value={v} errors={errors} themeKeys={themeKeys} />
 			<Num name="themeVolume" label="theme volume (0–1)" value={v} errors={errors} />
+			<ThemePalette value={v} errors={errors} themeKeys={themeKeys} />
 			<Select name="satisfyingVideoCategory" label="satisfying video category" value={v} errors={errors} options={["satisfying", "gameplay", "america"]} />
 			<Num name="endPaddingDurationMs" label="end padding (ms)" value={v} errors={errors} />
 			<YtCategoryField value={v} errors={errors} />

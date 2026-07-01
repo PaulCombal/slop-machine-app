@@ -55,6 +55,7 @@ export async function compileAndSaveVideoConfig(
 	personaGroup: PersonaGroupConfig,
 	sentences: ScriptSentence[],
 	topic: FullTopicContext,
+	firstFrameImage?: string,
 ) {
 	// Validate sentences
 	for (const sentence of sentences) {
@@ -107,6 +108,7 @@ export async function compileAndSaveVideoConfig(
 		personae: personaGroup,
 		topic,
 		sentences,
+		firstFrameImage,
 	};
 
 	await Bun.s3.write(

@@ -177,11 +177,18 @@ export async function generateScriptOnTopic(
 	}
 
 	const stanceNames = persona.stances.map((s) => s.name);
+	// Mood themes this persona may switch to per line (curated palette).
+	const themeKeys = new Set(persona.themes ?? []);
+	const themesBlock = persona.themes?.length
+		? persona.themes.map((t) => `'${t}'`).join(", ")
+		: "";
 	const ScriptSentenceSchema = z.array(
 		z.object({
 			sentence: z.string(),
 			stance: z.enum(stanceNames as [string, ...string[]]),
 			illustration: z.string(),
+			// Free string; sanitised against the palette after parsing.
+			theme: z.string().optional(),
 		})
 	);
 
@@ -192,14 +199,18 @@ export async function generateScriptOnTopic(
 Return ONLY a raw JSON array of objects. Each object must contain:
 - "sentence": (string) The spoken line.
 - "stance": (string) Must be one of: ${stanceNames.join(", ")}.
-- "illustration": (string) A 1-3 word search term for Pexels stock footage (focus on concrete visuals, e.g., "broken clock" instead of "wasted time").
+- "illustration": (string) A 1-3 word search term for Pexels stock footage (focus on concrete visuals, e.g., "broken clock" instead of "wasted time").${
+		themesBlock
+			? `\n- "theme": (string, optional) Background music for the line's mood; one of: ${themesBlock}. Set it only on a clear mood shift and keep it the same across consecutive lines of that mood. Omit to keep the base music.`
+			: ""
+	}
 
 JSON Structure:
 [
   {
     "sentence": "",
     "stance": "",
-    "illustration": ""
+    "illustration": ""${themesBlock ? ',\n    "theme": ""' : ""}
   }
 ]
 `,
@@ -209,6 +220,7 @@ JSON Structure:
 
 	for (const sentence of sentences) {
 		sentence.personaId = persona.id;
+		if (sentence.theme && !themeKeys.has(sentence.theme)) sentence.theme = undefined;
 		setSpeakerAppearance(sentence, persona, false);
 	}
 
@@ -235,12 +247,19 @@ export async function generateScriptOnTopicForGroup(
 	const news = topic.latestNews.length ? 'Contextual news: \n' + topic.latestNews.map(newsItem => `Article title: ${newsItem.title}\nArticle description: ${newsItem.description}\nArticle summary:${newsItem.summary}`) : '';
 
 	const validIds = personaGroup.personae.map(p => p.id) as [string, ...string[]];
+	// Mood themes the group may switch to per line (curated palette).
+	const themeKeys = new Set(personaGroup.themes ?? []);
+	const themesBlock = personaGroup.themes?.length
+		? personaGroup.themes.map((t) => `'${t}'`).join(", ")
+		: "";
 	const ScriptSchema = z.array(
 		z.object({
 			personaId: z.enum(validIds),
 			sentence: z.string(),
 			stance: z.string(),
-			illustration: z.string()
+			illustration: z.string(),
+			// Free string; sanitised against the palette after parsing.
+			theme: z.string().optional()
 		})
 	);
 
@@ -265,7 +284,11 @@ ${news}
 - ${personaGroup.prompt}
 - SCRIPTLENGTH: Keep sentences under 15-20 words to maintain "Shorts" pacing.
 - DYNAMICS: Ensure characters interrupt, agree, or clash with each other to create energy.
-- VISUALS: The "illustration" must be a concrete noun for stock footage search (e.g., "coffee splash" not "morning vibes").
+- VISUALS: The "illustration" must be a concrete noun for stock footage search (e.g., "coffee splash" not "morning vibes").${
+		themesBlock
+			? `\n- MUSIC: The optional "theme" sets background music for the line's mood; it must be one of: ${themesBlock}. Set it only on a clear mood shift and keep it the same across consecutive lines of that mood. Omit to keep the base music.`
+			: ""
+	}
 
 # OUTPUT REQUIREMENT
 Return ONLY a valid JSON array of objects. Do not include markdown formatting or "json" code blocks. Do NOT use em dashes or speech pacing info.
@@ -275,12 +298,16 @@ Return ONLY a valid JSON array of objects. Do not include markdown formatting or
     "personaId": "Exact ID from Cast",
     "sentence": "The spoken line.",
     "stance": "Exact stance name from the character's list",
-    "illustration": "Stock footage search term"
+    "illustration": "Stock footage search term"${themesBlock ? ',\n    "theme": "One of the theme keys, or omit"' : ""}
   }
 ]`,
 		modelAlias,
 		ScriptSchema
 	) as ScriptSentence[];
+
+	for (const sentence of sentences) {
+		if (sentence.theme && !themeKeys.has(sentence.theme)) sentence.theme = undefined;
+	}
 
 	await addIllustrationLink(sentences);
 	addPersonaPositionToSentences(sentences, personaGroup);

@@ -35,6 +35,8 @@ export type ScriptSentence = {
 	illustrationVideo?: PexelsVideoFile;
 	/** Show location this line happens in (set by the breakdown), if any. */
 	locationKey?: string;
+	/** Theme/mood track that starts on this line (from the config palette), if any. */
+	theme?: string;
 	/** Resolved background file name in the render folder (Pexels clip or room asset). */
 	illustrationFile?: string;
 	/** Whether the resolved background is a still image or a video. */
@@ -55,4 +57,6 @@ export type OutputConfig = {
 	sentences: ScriptSentence[];
 	topic: FullTopicContext;
 	satisfyingVideo: string;
+	/** Filename (in the render folder) of a still shown as frame 0 — the Shorts thumbnail. */
+	firstFrameImage?: string;
 };

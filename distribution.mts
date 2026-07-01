@@ -10,8 +10,16 @@ export type UploadPlatform = "yt" | "ig" | "tt";
 export type DistributionConfig = {
 	channelId: string;
 	platforms: UploadPlatform[];
+	/** Base background track; plays on any line the writer leaves un-themed. */
 	theme: string;
 	themeVolume: number;
+	/**
+	 * The palette of theme keys the scriptwriter may switch to per sentence
+	 * (a curated subset of the theme library). Empty/absent = only the base
+	 * `theme`. Optional so legacy code-defined configs don't have to set it; the
+	 * DB path always supplies an array.
+	 */
+	themes?: string[];
 	satisfyingVideoCategory: SatisfyingVideoCategory;
 	endPaddingDurationMs: number;
 };
@@ -23,6 +31,7 @@ export function pickDistribution(d: DistributionConfig): DistributionConfig {
 		platforms: d.platforms,
 		theme: d.theme,
 		themeVolume: d.themeVolume,
+		themes: d.themes,
 		satisfyingVideoCategory: d.satisfyingVideoCategory,
 		endPaddingDurationMs: d.endPaddingDurationMs,
 	};

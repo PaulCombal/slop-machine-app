@@ -40,6 +40,7 @@ export function rowToPersonaConfig(row: Row): PersonaConfig {
 		personaName: row.persona_name,
 		theme: row.theme,
 		themeVolume: num(row.theme_volume),
+		themes: parseJson<string[]>(row.themes ?? "[]"),
 		language: row.language as PersonaConfig["language"],
 		promptPersonality,
 		promptVideoMeta: row.prompt_video_meta,
@@ -69,6 +70,7 @@ function distributionFromRow(row: Row): DistributionConfig {
 		platforms: row.platforms,
 		theme: row.theme,
 		themeVolume: num(row.theme_volume),
+		themes: parseJson<string[]>(row.themes ?? "[]"),
 		satisfyingVideoCategory:
 			row.satisfying_video_category as DistributionConfig["satisfyingVideoCategory"],
 		endPaddingDurationMs: num(row.end_padding_duration_ms),

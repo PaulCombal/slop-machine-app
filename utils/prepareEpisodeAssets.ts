@@ -81,6 +81,7 @@ export async function prepareEpisodeAssets(
 				stance: speakerStance,
 				illustration: s.illustration,
 				locationKey: s.locationKey,
+				theme: s.theme,
 				wordsAlignment: [],
 			};
 		});
@@ -98,6 +99,17 @@ export async function prepareEpisodeAssets(
 		return { seed, topic: episodePlanToTopic(episode, show), sentences };
 	});
 
+	// First-frame/thumbnail still: this episode's own image if set, else the
+	// manifest-level "apply to all" default. Copied into the render folder as
+	// `thumbnail.<ext>` and recorded on the config so it renders as frame 0.
+	const thumbExt = episode.thumbnailExt ?? manifest.defaultThumbnailExt;
+	const thumbSrc = episode.thumbnailExt
+		? `shows/${showId}/thumbnails/${episode.index}.${thumbExt}`
+		: thumbExt
+			? `shows/${showId}/thumbnails/all.${thumbExt}`
+			: null;
+	const firstFrameImage = thumbExt ? `thumbnail.${thumbExt}` : undefined;
+
 	console.log(`== Downloading illustrations (${plan.sentences.length} total)`);
 	console.log("== Downloading satisfying video");
 	console.log("== TTS processing");
@@ -105,6 +117,9 @@ export async function prepareEpisodeAssets(
 	await Promise.all([
 		downloadIllustrations(plan.sentences, folder),
 		copyLocationAssets(show, plan.sentences, folder),
+		thumbSrc && firstFrameImage
+			? copyThumbnailAsset(thumbSrc, `${folder}/${firstFrameImage}`)
+			: Promise.resolve(),
 		pickAndDownloadSatisfyingVideo(
 			plan.seed,
 			folder,
@@ -113,7 +128,7 @@ export async function prepareEpisodeAssets(
 		scriptSentencesToSpeechForGroup(folder, plan.sentences, group),
 	]);
 
-	await compileAndSaveVideoConfig(plan.seed, folder, group, plan.sentences, plan.topic);
+	await compileAndSaveVideoConfig(plan.seed, folder, group, plan.sentences, plan.topic, firstFrameImage);
 
 	return { renderId, folder };
 }
@@ -148,6 +163,16 @@ function resolveIllustrations(show: ShowConfig, sentences: ScriptSentence[]): vo
 			s.illustrationKind = "video";
 			s.illustrationFile = `sentence_${i + 1}_illustration.mp4`;
 		}
+	});
+}
+
+/** Copy the resolved first-frame still into the render folder (idempotent). */
+async function copyThumbnailAsset(src: string, dest: string): Promise<void> {
+	if (await Bun.s3.exists(dest)) return;
+	const ext = (dest.split(".").pop() ?? "").toLowerCase();
+	const bytes = new Uint8Array(await Bun.s3.file(src).arrayBuffer());
+	await Bun.s3.write(dest, bytes, {
+		type: LOCATION_CONTENT_TYPE[ext] ?? "application/octet-stream",
 	});
 }
 

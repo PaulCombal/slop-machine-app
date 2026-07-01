@@ -16,6 +16,8 @@ export type EpisodePlanSentence = {
 	illustration: string;
 	/** Key of the show location this line happens in, if any (else Pexels). */
 	locationKey?: string;
+	/** Mood theme that starts on this line (from the show palette), if any. */
+	theme?: string;
 };
 
 export type EpisodeStatus = "pending" | "queued" | "done";
@@ -30,12 +32,24 @@ export type EpisodePlan = {
 	sentences: EpisodePlanSentence[];
 	status: EpisodeStatus;
 	renderId?: string;
+	/**
+	 * Extension of this episode's own first-frame/thumbnail image (png/jpg/…), if
+	 * one was set. Presence means a still lives at
+	 * `shows/<showId>/thumbnails/<index>.<ext>` and renders as frame 0.
+	 */
+	thumbnailExt?: string;
 };
 
 export type SeriesManifest = {
 	showId: string;
 	createdAt: string;
 	episodes: EpisodePlan[];
+	/**
+	 * "Apply to all episodes" default first-frame image extension. Used by any
+	 * episode without its own `thumbnailExt`; stored at
+	 * `shows/<showId>/thumbnails/all.<ext>`.
+	 */
+	defaultThumbnailExt?: string;
 };
 
 function dummy(show: ShowConfig): SeriesManifest {
@@ -131,6 +145,13 @@ export async function generateSeriesBreakdown(
 				.join("\n")
 		: "";
 
+	// Mood themes the writer may switch to per line (a curated palette). Listed by
+	// key so the model picks a bare key; sanitised against this set after parsing.
+	const themeKeys = new Set(show.themes ?? []);
+	const themesBlock = show.themes?.length
+		? show.themes.map((t) => `'${t}'`).join(", ")
+		: "";
+
 	const SlotEnum = z.enum([
 		"far-left",
 		"left",
@@ -151,6 +172,8 @@ export async function generateSeriesBreakdown(
 		// Free string; sanitised against the known location keys after parsing
 		// (an enum would reject when the show has no locations at all).
 		locationKey: z.string().optional(),
+		// Free string; sanitised against the show's theme palette after parsing.
+		theme: z.string().optional(),
 	});
 
 	const EpisodeSchema = z.object({
@@ -183,6 +206,10 @@ ${
 	locationsBlock
 		? `\n# LOCATIONS (where scenes can take place)\n${locationsBlock}\n`
 		: ""
+}${
+	themesBlock
+		? `\n# MOOD THEMES (background music you may switch to per line)\nAvailable theme keys: ${themesBlock}\n`
+		: ""
 }
 # SOURCE SCRIPT (the whole story)
 ${show.prose}
@@ -210,6 +237,11 @@ ${show.prompt ? `- ${show.prompt}` : ""}
 			? `
 - "locationKey" MUST be one of the location keys listed above for the place that line happens in. Keep consecutive lines in the SAME location whenever the scene does not move, so the background stays continuous. Only change locationKey when the scene actually moves to a different place. If no listed location fits, omit "locationKey".`
 			: ""
+	}${
+		themesBlock
+			? `
+- "theme" sets the background music for that line's mood and MUST be one of the theme keys listed above. Set it only when a line clearly calls for a mood shift (action, dramatic, sad, tense…), and keep the SAME theme across consecutive lines that share a mood so the music does not restart. Omit "theme" to keep the base music playing.`
+			: ""
 	}
 - For each episode also write a catchy "title", an SEO "description", and 3-5 "hashtags" (with the # symbol).
 - Do NOT use em dashes.
@@ -230,7 +262,7 @@ Return ONLY a valid JSON object of the form:
             { "personaId": "Exact id from cast", "stance": "Exact stance for that character", "slot": "left" }
           ],
           "sentence": "",
-          "illustration": ""${locationsBlock ? ',\n          "locationKey": "one of the location keys, or omit"' : ""}
+          "illustration": ""${locationsBlock ? ',\n          "locationKey": "one of the location keys, or omit"' : ""}${themesBlock ? ',\n          "theme": "one of the theme keys, or omit"' : ""}
         }
       ]
     }
@@ -249,13 +281,14 @@ Return ONLY a valid JSON object of the form:
 		...ep,
 		index,
 		status: "pending" as const,
-		// Drop any hallucinated location key the model invents.
+		// Drop any hallucinated location/theme key the model invents.
 		sentences: ep.sentences.map((s) => ({
 			...s,
 			locationKey:
 				s.locationKey && locationKeys.has(s.locationKey)
 					? s.locationKey
 					: undefined,
+			theme: s.theme && themeKeys.has(s.theme) ? s.theme : undefined,
 		})),
 	}));
 
